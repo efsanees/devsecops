@@ -38,7 +38,7 @@ def get_all_files(repo_url: str, token: str = "", path: str = "", depth: int = 0
         all_files = []
         for item in items:
             if item.get("type") == "file":
-                all_files.append(item.get("path", ""))  # name değil, path
+                all_files.append(item.get("path", ""))
             elif item.get("type") == "dir":
                 sub_files = get_all_files(repo_url, token, item.get("path", ""), depth + 1, max_depth)
                 all_files.extend(sub_files)
@@ -83,18 +83,26 @@ def push_to_github(repo_url: str, token: str, yaml_content: str) -> dict:
 
     headers = {
         "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json"
+        "Accept": "application/vnd.github+json",
     }
 
-    get_resp = requests.get(api_url, headers=headers)
-    sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
+    try:
+        get_resp = requests.get(api_url, headers=headers, timeout=15)
+        sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
+    except requests.RequestException as exc:
+        logger.warning(f"push_to_github GET hatası: {exc}")
+        sha = None
 
     data = {
         "message": "chore: add DevSecOps pipeline via AI",
-        "content": base64.b64encode(yaml_content.encode()).decode()
+        "content": base64.b64encode(yaml_content.encode()).decode(),
     }
     if sha:
         data["sha"] = sha
 
-    response = requests.put(api_url, headers=headers, json=data)
-    return response.json()
+    try:
+        response = requests.put(api_url, headers=headers, json=data, timeout=15)
+        return response.json()
+    except requests.RequestException as exc:
+        logger.error(f"push_to_github PUT hatası: {exc}")
+        return {"error": str(exc)}

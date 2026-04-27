@@ -3,3 +3,7 @@ uvicorn
 requests
 pyyaml
 groq
+slowapi
+python-dotenv
+sqlalchemy
+bandit
