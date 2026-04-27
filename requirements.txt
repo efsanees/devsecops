@@ -1,9 +1,12 @@
 fastapi
 uvicorn
 requests
+httpx
 pyyaml
 groq
 slowapi
 python-dotenv
 sqlalchemy
 bandit
+jinja2
+weasyprint
