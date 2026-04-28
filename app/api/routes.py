@@ -1,7 +1,8 @@
 import logging
 import re
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,7 @@ from app.core.limiter import limiter
 from app.core.security import require_api_key
 from app.database import get_db
 from app.models.analysis import Analysis as AnalysisModel
+from app.models.job import Job
 from app.models.pipeline import Pipeline as PipelineModel
 from app.security.sca_analyzer import analyze_dependencies
 from app.security.sast_analyzer import analyze_static
@@ -287,3 +289,117 @@ def get_history_detail(analysis_id: int, db: Session = Depends(get_db)):
         "security_summary": record.security_summary,
         "created_at": record.created_at.isoformat() if record.created_at else None,
     }
+
+
+# ── Job-based endpoints (multi-agent orchestrator) ────────────────────────────
+#
+# Bu endpoint'ler eski /full ve /security'nin async versiyonu.
+# POST /job → anında job_id döner, arka planda orchestrator çalışır.
+# Frontend job_id ile /ws/{job_id}'ye bağlanıp canlı ilerleme izler.
+# Eski endpoint'ler backward compat için korunuyor.
+
+
+@router.post("/job", status_code=202)
+@limiter.limit("10/minute")
+async def start_job(
+    request: Request,
+    body: RepoRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """
+    Multi-agent analizi başlatır.
+    Anında job_id döner (202 Accepted), analiz arka planda çalışır.
+    İlerlemeyi ws://.../ws/{job_id} üzerinden izleyebilirsin.
+    """
+    from app.orchestrator import Orchestrator
+
+    job_id = str(uuid.uuid4())
+    job = Job(id=job_id, repo_url=body.repo_url, platform=body.platform, status="pending")
+    db.add(job)
+    db.commit()
+
+    orchestrator = Orchestrator()
+    background_tasks.add_task(
+        orchestrator.run, job_id, body.repo_url, body.token, body.platform
+    )
+
+    logger.info("/job başlatıldı: %s → job_id=%s", body.repo_url, job_id)
+    return {
+        "job_id": job_id,
+        "status": "pending",
+        "ws_url": f"/ws/{job_id}",
+    }
+
+
+@router.get("/job/{job_id}")
+def get_job(job_id: str, db: Session = Depends(get_db)):
+    """Job durumunu ve (tamamlandıysa) sonucunu döner."""
+    job = db.get(Job, job_id)
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "Job bulunamadı"},
+        )
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "repo_url": job.repo_url,
+        "platform": job.platform,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+        "result": job.result,   # None iken hâlâ çalışıyor
+        "error": job.error,
+    }
+
+
+@router.get("/job/{job_id}/yaml")
+def get_job_yaml(job_id: str, db: Session = Depends(get_db)):
+    """Üretilen pipeline YAML'ını plain text olarak döner (indirilebilir)."""
+    job = db.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Job bulunamadı"})
+    if job.status != "completed" or not job.result:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "Analiz henüz tamamlanmadı"})
+
+    yaml_content = job.result.get("pipeline_yaml", "")
+    if not yaml_content:
+        raise HTTPException(status_code=404, detail={"code": "NO_YAML", "message": "Pipeline YAML bulunamadı"})
+
+    return Response(
+        content=yaml_content,
+        media_type="text/plain",
+        headers={"Content-Disposition": "attachment; filename=pipeline.yml"},
+    )
+
+
+@router.get("/job/{job_id}/report.md")
+def get_job_report_md(job_id: str, db: Session = Depends(get_db)):
+    """Markdown rapor — Gün 11'de implement edilecek, şimdilik stub."""
+    job = db.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Job bulunamadı"})
+    if job.status != "completed":
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "Analiz henüz tamamlanmadı"})
+    # TODO: Gün 11'de app.reports.markdown_export.render_markdown(job.result) çağrılacak
+    return Response(
+        content=f"# DevSecOps Raporu\n\nJob: {job_id}\nDurum: {job.status}\n",
+        media_type="text/markdown",
+        headers={"Content-Disposition": f"attachment; filename=report-{job_id[:8]}.md"},
+    )
+
+
+@router.get("/job/{job_id}/report.pdf")
+def get_job_report_pdf(job_id: str, db: Session = Depends(get_db)):
+    """PDF rapor — Gün 11'de implement edilecek, şimdilik stub."""
+    job = db.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Job bulunamadı"})
+    if job.status != "completed":
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "Analiz henüz tamamlanmadı"})
+    # TODO: Gün 11'de app.reports.pdf_export.render_pdf(job.result) çağrılacak
+    raise HTTPException(
+        status_code=501,
+        detail={"code": "NOT_IMPLEMENTED", "message": "PDF export yakında aktif olacak"},
+    )
