@@ -335,3 +335,71 @@ def analyze_dependencies(
             )
     logger.info(f"SCA tamamlandı: {packages_checked} paket, {len(findings)} bulgu")
     return result
+
+
+# ---------------------------------------------------------------------------
+# Lokal dizinden okuma (temp_dir varsa GitHub API'ye gerek yok)
+# ---------------------------------------------------------------------------
+
+_DEP_FILES = {
+    "requirements.txt": ("PyPI",      _parse_requirements),
+    "package.json":     ("npm",       _parse_package_json),
+    "pom.xml":          ("Maven",     _parse_pom_xml),
+    "go.mod":           ("Go",        _parse_go_mod),
+    "Cargo.lock":       ("crates.io", _parse_cargo_lock),
+}
+
+
+def analyze_dependencies_from_dir(repo_dir: str) -> dict:
+    """
+    İndirilmiş repo dizininden bağımlılık dosyalarını okur, OSV.dev'e sorar.
+    GitHub API çağrısı yapmaz — temp_dir varken kullanılır.
+    """
+    import os
+
+    findings: list[dict] = []
+    packages_checked = 0
+    dep_files_found = False
+
+    for root, _, files in os.walk(repo_dir):
+        # node_modules ve sanal ortamları atla
+        rel_root = os.path.relpath(root, repo_dir)
+        if any(skip in rel_root for skip in ("node_modules", ".venv", "venv", ".git")):
+            continue
+
+        for fname in files:
+            # .csproj ayrı ele alınacak
+            if fname.endswith(".csproj"):
+                dep_files_found = True
+                fpath = os.path.join(root, fname)
+                try:
+                    content = open(fpath, encoding="utf-8", errors="ignore").read()
+                    pkgs = _parse_csproj(content)
+                    packages_checked += len(pkgs)
+                    findings.extend(_query_osv(pkgs, "NuGet"))
+                except OSError:
+                    pass
+                continue
+
+            if fname not in _DEP_FILES:
+                continue
+
+            ecosystem, parser = _DEP_FILES[fname]
+            dep_files_found = True
+            fpath = os.path.join(root, fname)
+            try:
+                content = open(fpath, encoding="utf-8", errors="ignore").read()
+                pkgs = parser(content)
+                packages_checked += len(pkgs)
+                findings.extend(_query_osv(pkgs, ecosystem))
+            except OSError as exc:
+                logger.warning("Bağımlılık dosyası okunamadı (%s): %s", fpath, exc)
+
+    result: dict = {"packages_checked": packages_checked, "findings": findings}
+    if packages_checked == 0:
+        result["skipped_reason"] = (
+            "Desteklenen bağımlılık dosyası bulunamadı" if not dep_files_found
+            else "Bağımlılık dosyaları boş veya okunamadı"
+        )
+    logger.info("SCA (local) tamamlandı: %d paket, %d bulgu", packages_checked, len(findings))
+    return result
