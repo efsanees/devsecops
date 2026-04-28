@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { analyzeRepo, generatePipeline, fullAnalysis, securityAnalysis } from '../api/client.js';
+import { analyzeRepo, generatePipeline, fullAnalysis, securityAnalysis, startJob } from '../api/client.js';
 
 const MODES = [
   {
@@ -19,9 +19,9 @@ const MODES = [
   },
   {
     id: 'full',
-    icon: '📊',
+    icon: '🤖',
     label: 'Tam Analiz',
-    desc: 'Pipeline + uyum skoru (A/B/C/D)',
+    desc: 'Multi-agent: SAST + SCA + Secret + Pipeline + DSOMM skoru',
     hasPlatform: true,
   },
   {
@@ -62,16 +62,23 @@ export default function Home() {
     const url = repoUrl.trim();
     const tok  = token.trim();
 
-    if (mode === 'analyze')  result = await analyzeRepo(url, tok);
-    else if (mode === 'auto')     result = await generatePipeline(url, tok, platform);
-    else if (mode === 'full')     result = await fullAnalysis(url, tok, platform);
-    else                          result = await securityAnalysis(url, tok);
+    if (mode === 'analyze')   result = await analyzeRepo(url, tok);
+    else if (mode === 'auto') result = await generatePipeline(url, tok, platform);
+    else if (mode === 'full') result = await startJob(url, tok, platform);
+    else                      result = await securityAnalysis(url, tok);
 
     setLoading(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
+
+    // Tam Analiz → progress sayfasına yönlendir (job-based)
+    if (mode === 'full') {
+      navigate(`/progress/${result.data.job_id}`);
+      return;
+    }
+
     navigate('/result', {
       state: { type: mode, data: result.data, repoUrl: url, platform },
     });
@@ -202,7 +209,7 @@ export default function Home() {
               <span className="animate-spin">⟳</span>
               <span>
                 {mode === 'security' ? 'Güvenlik taranıyor...' :
-                 mode === 'full'     ? 'Analiz ediliyor...' :
+                 mode === 'full'     ? 'Analiz başlatılıyor...' :
                  mode === 'auto'     ? 'Pipeline üretiliyor...' :
                                       'Analiz ediliyor...'}
               </span>

@@ -3,6 +3,7 @@ import Navbar from './components/Navbar.jsx';
 import Home from './pages/Home.jsx';
 import ResultPage from './pages/ResultPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
+import ProgressPage from './pages/ProgressPage.jsx';
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/progress/:jobId" element={<ProgressPage />} />
             <Route path="/result" element={<ResultPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
