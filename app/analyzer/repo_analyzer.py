@@ -17,15 +17,26 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
 
     if not all_files:
         logger.warning("Dosya listesi bos — token gerekebilir")
-        return {"language": "unknown", "framework": "unknown", "has_tests": False, "has_docker": False}
+        return {
+            "language": "unknown", "framework": "unknown",
+            "has_tests": False, "has_docker": False,
+            "package_manager": "unknown", "files": [],
+        }
 
     logger.info(f"Toplam {len(all_files)} dosya bulundu")
 
-    result = {"language": "unknown", "framework": "unknown", "has_tests": False, "has_docker": False}
+    result = {
+        "language": "unknown",
+        "framework": "unknown",
+        "has_tests": False,
+        "has_docker": False,
+        "package_manager": "unknown",
+        "files": all_files,   # orchestrator diğer agent'lara geçirir
+    }
 
     has_test_files = any(
         ("test_" in f or "_test" in f or "spec" in f.lower())
-        and f.endswith((".py", ".js", ".ts", ".cs", ".java", ".go", ".rs"))
+        and f.endswith((".py", ".js", ".ts", ".cs", ".java", ".go", ".rs", ".rb", ".php"))
         for f in all_files
     )
 
@@ -33,6 +44,7 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
     pkg_path = find_file_path(all_files, "package.json")
     if pkg_path:
         result["language"] = "Node.js"
+        result["package_manager"] = "npm"
         content = get_file_content(repo_url, token, pkg_path)
         if content:
             try:
@@ -55,6 +67,10 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
                     result["framework"] = "Svelte"
                 if any(d in dep_names for d in ["jest", "mocha", "vitest", "jasmine", "cypress"]):
                     result["has_tests"] = True
+                if find_file_path(all_files, "yarn.lock"):
+                    result["package_manager"] = "yarn"
+                elif find_file_path(all_files, "pnpm-lock.yaml"):
+                    result["package_manager"] = "pnpm"
             except Exception as e:
                 logger.error(f"package.json parse hatasi: {e}")
         if has_test_files:
@@ -66,6 +82,11 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
     pyproject = find_file_path(all_files, "pyproject.toml")
     if req_path or setup_py or pyproject:
         result["language"] = "Python"
+        result["package_manager"] = "pip"
+        if find_file_path(all_files, "poetry.lock"):
+            result["package_manager"] = "poetry"
+        elif find_file_path(all_files, "Pipfile"):
+            result["package_manager"] = "pipenv"
         if req_path:
             req_content = get_file_content(repo_url, token, req_path)
             if req_content:
@@ -83,6 +104,7 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
     # --- .NET ---
     if any(f.endswith(".csproj") for f in all_files) or any(f.endswith(".sln") for f in all_files):
         result["language"] = ".NET"
+        result["package_manager"] = "nuget"
         result["has_tests"] = (
             any("test" in f.lower() for f in all_files if f.endswith(".csproj")) or has_test_files
         )
@@ -91,6 +113,7 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
     pom_path = find_file_path(all_files, "pom.xml")
     if pom_path:
         result["language"] = "Java (Maven)"
+        result["package_manager"] = "maven"
         result["framework"] = "Spring" if any("spring" in f.lower() for f in all_files) else "unknown"
         result["has_tests"] = any(
             "test" in f.lower() for f in all_files if f.endswith(".java")
@@ -100,6 +123,7 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
     gradle_path = find_file_path(all_files, "build.gradle") or find_file_path(all_files, "build.gradle.kts")
     if gradle_path and "Java" not in result["language"]:
         result["language"] = "Java (Gradle)"
+        result["package_manager"] = "gradle"
         result["has_tests"] = any(
             "test" in f.lower() for f in all_files if f.endswith(".java")
         ) or has_test_files
@@ -108,6 +132,7 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
     go_mod = find_file_path(all_files, "go.mod")
     if go_mod:
         result["language"] = "Go"
+        result["package_manager"] = "go modules"
         result["has_tests"] = any(f.endswith("_test.go") for f in all_files)
         go_content = get_file_content(repo_url, token, go_mod)
         if go_content and "gin-gonic/gin" in go_content:
@@ -119,6 +144,7 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
     cargo_path = find_file_path(all_files, "Cargo.toml")
     if cargo_path:
         result["language"] = "Rust"
+        result["package_manager"] = "cargo"
         result["has_tests"] = any(
             "tests/" in f or f.endswith("_test.rs") for f in all_files
         )
@@ -127,6 +153,42 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
             result["framework"] = "Actix"
         elif cargo_content and "axum" in cargo_content:
             result["framework"] = "Axum"
+
+    # --- PHP ---
+    composer_path = find_file_path(all_files, "composer.json")
+    if composer_path:
+        result["language"] = "PHP"
+        result["package_manager"] = "composer"
+        result["has_tests"] = has_test_files or any(
+            "phpunit" in f.lower() or "pest" in f.lower() for f in all_files
+        )
+        composer_content = get_file_content(repo_url, token, composer_path)
+        if composer_content:
+            try:
+                comp = json.loads(composer_content)
+                all_deps = {**comp.get("require", {}), **comp.get("require-dev", {})}
+                dep_names = [d.lower() for d in all_deps]
+                if "laravel/framework" in dep_names:
+                    result["framework"] = "Laravel"
+                elif "symfony/framework-bundle" in dep_names:
+                    result["framework"] = "Symfony"
+            except Exception as e:
+                logger.error(f"composer.json parse hatasi: {e}")
+
+    # --- Ruby ---
+    gemfile_path = find_file_path(all_files, "Gemfile")
+    if gemfile_path:
+        result["language"] = "Ruby"
+        result["package_manager"] = "bundler"
+        result["has_tests"] = has_test_files or any(
+            "spec" in f.lower() or "_test.rb" in f for f in all_files
+        )
+        gemfile_content = get_file_content(repo_url, token, gemfile_path)
+        if gemfile_content:
+            if "rails" in gemfile_content.lower():
+                result["framework"] = "Rails"
+            elif "sinatra" in gemfile_content.lower():
+                result["framework"] = "Sinatra"
 
     # --- Docker ---
     if find_file_path(all_files, "Dockerfile") or find_file_path(all_files, "docker-compose.yml"):
@@ -139,14 +201,23 @@ def analyze_repo(repo_url: str, token: str = "") -> dict:
 def detect_commands(analysis: dict) -> tuple[str, str]:
     lang = analysis["language"]
     has_tests = analysis.get("has_tests", False)
+    pkg = analysis.get("package_manager", "")
 
     commands = {
-        "Node.js":      ("npm install", "npm test" if has_tests else "echo 'test yok'"),
-        "Python":       ("pip install -r requirements.txt", "pytest" if has_tests else "echo 'test yok'"),
-        ".NET":         ("dotnet build", "dotnet test" if has_tests else "echo 'test yok'"),
-        "Java (Maven)": ("mvn -B package --no-transfer-progress -DskipTests", "mvn test -B"),
-        "Java (Gradle)":("gradle build -x test", "gradle test"),
-        "Go":           ("go build ./...", "go test ./..."),
-        "Rust":         ("cargo build --release", "cargo test"),
+        "Node.js": (
+            "pnpm install" if pkg == "pnpm" else "yarn install" if pkg == "yarn" else "npm install",
+            "npm test" if has_tests else "echo 'test yok'",
+        ),
+        "Python": (
+            "poetry install" if pkg == "poetry" else "pipenv install" if pkg == "pipenv" else "pip install -r requirements.txt",
+            "pytest" if has_tests else "echo 'test yok'",
+        ),
+        ".NET":          ("dotnet build", "dotnet test" if has_tests else "echo 'test yok'"),
+        "Java (Maven)":  ("mvn -B package --no-transfer-progress -DskipTests", "mvn verify -B"),
+        "Java (Gradle)": ("gradle build -x test", "gradle test"),
+        "Go":            ("go build ./...", "go test ./..."),
+        "Rust":          ("cargo build --release", "cargo test"),
+        "PHP":           ("composer install --no-interaction", "vendor/bin/phpunit" if has_tests else "echo 'test yok'"),
+        "Ruby":          ("bundle install", "bundle exec rspec" if has_tests else "echo 'test yok'"),
     }
     return commands.get(lang, ("echo 'build adimi'", "echo 'test adimi'"))
