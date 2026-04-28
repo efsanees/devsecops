@@ -146,3 +146,17 @@ def analyze_static(
         result["skipped_reason"] = error
     logger.info(f"SAST tamamlandı: {fetched} dosya, {len(findings)} bulgu")
     return result
+
+
+def run_bandit_on_dir(repo_dir: str) -> list[dict]:
+    """
+    İndirilmiş repo dizini üzerinde Bandit çalıştırır.
+    SASTAgent tarafından kullanılır (dosya bazlı indirme yerine tam dizin).
+    """
+    findings, error = _run_bandit(repo_dir)
+    if error:
+        logger.warning("Bandit hatası: %s", error)
+    # source alanı ekle — SASTAgent normalizasyonu için
+    for f in findings:
+        f["source"] = "bandit"
+    return findings
