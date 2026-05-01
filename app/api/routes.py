@@ -376,30 +376,47 @@ def get_job_yaml(job_id: str, db: Session = Depends(get_db)):
 
 @router.get("/job/{job_id}/report.md")
 def get_job_report_md(job_id: str, db: Session = Depends(get_db)):
-    """Markdown rapor — Gün 11'de implement edilecek, şimdilik stub."""
+    """Job sonucundan Markdown rapor üretir ve indirir."""
+    from app.reports.markdown_export import render_markdown
+
     job = db.get(Job, job_id)
     if not job:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Job bulunamadı"})
-    if job.status != "completed":
+    if job.status != "completed" or not job.result:
         raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "Analiz henüz tamamlanmadı"})
-    # TODO: Gün 11'de app.reports.markdown_export.render_markdown(job.result) çağrılacak
+
+    md = render_markdown(job.result)
     return Response(
-        content=f"# DevSecOps Raporu\n\nJob: {job_id}\nDurum: {job.status}\n",
+        content=md,
         media_type="text/markdown",
-        headers={"Content-Disposition": f"attachment; filename=report-{job_id[:8]}.md"},
+        headers={"Content-Disposition": f"attachment; filename=devsecops-report-{job_id[:8]}.md"},
     )
 
 
 @router.get("/job/{job_id}/report.pdf")
 def get_job_report_pdf(job_id: str, db: Session = Depends(get_db)):
-    """PDF rapor — Gün 11'de implement edilecek, şimdilik stub."""
+    """
+    Job sonucundan PDF rapor üretir.
+    WeasyPrint kuruluysa PDF, kurulu değilse HTML döner (browser'dan yazdırılabilir).
+    """
+    from app.reports.pdf_export import render_pdf
+
     job = db.get(Job, job_id)
     if not job:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Job bulunamadı"})
-    if job.status != "completed":
+    if job.status != "completed" or not job.result:
         raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "Analiz henüz tamamlanmadı"})
-    # TODO: Gün 11'de app.reports.pdf_export.render_pdf(job.result) çağrılacak
-    raise HTTPException(
-        status_code=501,
-        detail={"code": "NOT_IMPLEMENTED", "message": "PDF export yakında aktif olacak"},
+
+    content, is_pdf = render_pdf(job.result)
+    if is_pdf:
+        return Response(
+            content=content,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=devsecops-report-{job_id[:8]}.pdf"},
+        )
+    # WeasyPrint yoksa HTML döner — kullanıcı browser'dan PDF olarak kaydedebilir
+    return Response(
+        content=content,
+        media_type="text/html",
+        headers={"Content-Disposition": f"inline; filename=devsecops-report-{job_id[:8]}.html"},
     )

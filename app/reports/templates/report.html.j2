@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>DevSecOps Raporu — {{ repo_name }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: #fff; padding: 32px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  h2 { font-size: 16px; margin: 28px 0 10px; padding-bottom: 4px; border-bottom: 2px solid #e5e7eb; }
+  h3 { font-size: 14px; margin: 18px 0 8px; color: #374151; }
+  .meta { color: #6b7280; font-size: 12px; margin-bottom: 24px; }
+  .score-box { display: inline-block; padding: 10px 20px; border-radius: 8px; margin-bottom: 16px; }
+  .level-olgun     { background: #d1fae5; color: #065f46; }
+  .level-gelisen   { background: #fef3c7; color: #92400e; }
+  .level-baslangic { background: #fee2e2; color: #991b1b; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px; }
+  th { background: #f3f4f6; text-align: left; padding: 7px 10px; font-weight: 600; }
+  td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; }
+  .CRITICAL { background: #7f1d1d; color: #fecaca; }
+  .HIGH     { background: #7c2d12; color: #fed7aa; }
+  .MEDIUM   { background: #78350f; color: #fde68a; }
+  .LOW      { background: #1e3a5f; color: #bfdbfe; }
+  .bar-wrap { background: #e5e7eb; border-radius: 4px; height: 8px; margin-top: 3px; }
+  .bar-fill { height: 8px; border-radius: 4px; }
+  .green { background: #10b981; }
+  .amber { background: #f59e0b; }
+  .red   { background: #ef4444; }
+  pre { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; font-size: 11px; overflow-wrap: break-word; white-space: pre-wrap; }
+  .clean { color: #059669; font-style: italic; }
+  @media print {
+    body { padding: 16px; }
+    h2 { page-break-before: auto; }
+    pre { page-break-inside: avoid; }
+    table { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>DevSecOps Analiz Raporu</h1>
+<div class="meta">
+  <strong>{{ repo_url }}</strong> &nbsp;|&nbsp;
+  {{ analyzed_at }} &nbsp;|&nbsp;
+  Platform: {{ platform | upper | replace("_", " ") }}
+  {% if elapsed_seconds %}&nbsp;|&nbsp; Süre: {{ elapsed_seconds }}s{% endif %}
+</div>
+
+<!-- DSOMM SKORU -->
+<h2>Güvenlik Olgunluk Skoru (DSOMM)</h2>
+{% set level_cls = 'level-olgun' if dsomm.level == 'Olgun' else ('level-gelisen' if dsomm.level == 'Gelişen' else 'level-baslangic') %}
+<div class="score-box {{ level_cls }}">
+  <strong style="font-size:24px">{{ dsomm.total_score }}</strong>/100 — {{ dsomm.level }}
+</div>
+
+<table>
+  <tr><th>Kategori</th><th>Puan</th><th>Max</th><th style="width:200px">İlerleme</th></tr>
+  {% set cats = [
+    ('build_deployment', 'Build & Deployment', 30),
+    ('testing', 'Test & Tarama', 25),
+    ('implementation', 'Implementation', 25),
+    ('information_gathering', 'Bilgi Toplama', 10),
+    ('culture_org', 'Kültür & Org', 10),
+  ] %}
+  {% for key, label, max in cats %}
+  {% set score = dsomm.categories.get(key, 0) %}
+  {% set pct = (score / max * 100) | int %}
+  {% set color = 'green' if pct >= 70 else ('amber' if pct >= 40 else 'red') %}
+  <tr>
+    <td>{{ label }}</td>
+    <td><strong>{{ score }}</strong></td>
+    <td>{{ max }}</td>
+    <td><div class="bar-wrap"><div class="bar-fill {{ color }}" style="width:{{ pct }}%"></div></div></td>
+  </tr>
+  {% endfor %}
+</table>
+
+<!-- PROFİL -->
+<h2>Proje Profili</h2>
+<table>
+  <tr><th>Alan</th><th>Değer</th></tr>
+  <tr><td>Dil</td><td>{{ profile.language | default('—') }}</td></tr>
+  <tr><td>Framework</td><td>{{ profile.framework | default('—') }}</td></tr>
+  <tr><td>Paket Yöneticisi</td><td>{{ profile.package_manager | default('—') }}</td></tr>
+  <tr><td>Test Dosyaları</td><td>{{ 'Var ✓' if profile.has_tests else 'Yok ✗' }}</td></tr>
+  <tr><td>Docker</td><td>{{ 'Var ✓' if profile.has_docker else 'Yok ✗' }}</td></tr>
+</table>
+
+<!-- SAST -->
+<h2>SAST — Statik Kod Analizi ({{ sast_findings | length }} bulgu)</h2>
+{% if sast_findings %}
+<table>
+  <tr><th>Severity</th><th>Kural</th><th>Dosya</th><th>Satır</th></tr>
+  {% for f in sast_findings[:30] %}
+  <tr>
+    <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+    <td>{{ f.rule_id | default('—') }}</td>
+    <td style="font-family:monospace;font-size:11px">{{ f.file | default('—') }}</td>
+    <td>{{ f.line | default('—') }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="clean">Temiz — SAST bulgusu yok.</p>{% endif %}
+
+<!-- SCA -->
+<h2>SCA — Bağımlılık Güvenliği ({{ sca_findings | length }} CVE)</h2>
+{% if sca_findings %}
+<table>
+  <tr><th>Severity</th><th>Paket</th><th>Versiyon</th><th>CVE</th><th>Düzeltme</th></tr>
+  {% for f in sca_findings[:30] %}
+  <tr>
+    <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+    <td>{{ f.package | default('—') }}</td>
+    <td style="font-family:monospace">{{ f.version | default('—') }}</td>
+    <td style="font-family:monospace;font-size:11px">{{ f.vuln_id | default('—') }}</td>
+    <td style="color:#059669">{{ f.fixed_in | default('—') }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="clean">Temiz — SCA bulgusu yok.</p>{% endif %}
+
+<!-- SECRET -->
+<h2>Gizli Bilgi Taraması ({{ secret_findings | length }} bulgu)</h2>
+{% if secret_findings %}
+<table>
+  <tr><th>Severity</th><th>Tür</th><th>Dosya</th><th>Maskeli Değer</th></tr>
+  {% for f in secret_findings %}
+  <tr>
+    <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+    <td>{{ f.secret_type | default(f.rule_id) | default('—') }}</td>
+    <td style="font-family:monospace;font-size:11px">{{ f.file | default('—') }}</td>
+    <td style="font-family:monospace;color:#d97706">{{ f.redacted_match | default('***') }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="clean">Temiz — Hardcoded secret bulunamadı.</p>{% endif %}
+
+<!-- PIPELINE -->
+<h2>Pipeline Analizi</h2>
+{% if pipeline_analysis.has_pipeline %}
+  {% for p in pipeline_analysis.existing_pipelines %}
+  <p><strong>{{ p.path }}</strong> ({{ p.platform }}) — Kapsam: {{ p.coverage_score }}/100</p>
+  {% endfor %}
+  {% if pipeline_analysis.missing_steps %}
+  <p style="color:#b45309;margin-top:8px"><strong>Eksik adımlar:</strong> {{ pipeline_analysis.missing_steps | join(', ') }}</p>
+  {% endif %}
+{% else %}
+  <p class="clean">Repoda CI/CD pipeline bulunamadı.</p>
+{% endif %}
+
+<!-- LLM ÖZETİ -->
+{% if llm_summary %}
+<h2>AI Risk Değerlendirmesi</h2>
+<p style="line-height:1.7;color:#374151">{{ llm_summary }}</p>
+{% endif %}
+
+<!-- PIPELINE YAML -->
+{% if pipeline_yaml %}
+<h2>Önerilen CI/CD Pipeline</h2>
+<pre>{{ pipeline_yaml }}</pre>
+{% endif %}
+
+<hr style="margin-top:32px;border-color:#e5e7eb">
+<p style="color:#9ca3af;font-size:11px;margin-top:8px">
+  Bu rapor DevSecOps AI tarafından otomatik olarak oluşturulmuştur.
+</p>
+</body>
+</html>

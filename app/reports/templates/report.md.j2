@@ -1,0 +1,111 @@
+# DevSecOps Analiz Raporu
+
+**Repo:** {{ repo_url }}
+**Tarih:** {{ analyzed_at }}
+**Platform:** {{ platform | upper | replace("_", " ") }}
+{% if elapsed_seconds %}**Analiz Süresi:** {{ elapsed_seconds }}s{% endif %}
+
+---
+
+## Güvenlik Olgunluk Skoru (DSOMM)
+
+**{{ dsomm.total_score }}/100 — {{ dsomm.level }}**
+
+| Kategori | Puan | Max |
+|---|---:|---:|
+| Build & Deployment | {{ dsomm.categories.build_deployment }} | 30 |
+| Test & Tarama | {{ dsomm.categories.testing }} | 25 |
+| Implementation | {{ dsomm.categories.implementation }} | 25 |
+| Bilgi Toplama | {{ dsomm.categories.information_gathering }} | 10 |
+| Kültür & Org | {{ dsomm.categories.culture_org }} | 10 |
+
+---
+
+## Proje Profili
+
+| Alan | Değer |
+|---|---|
+| Dil | {{ profile.language | default('—') }} |
+| Framework | {{ profile.framework | default('—') }} |
+| Paket Yöneticisi | {{ profile.package_manager | default('—') }} |
+| Test Dosyası | {{ 'Var ✓' if profile.has_tests else 'Yok ✗' }} |
+| Docker | {{ 'Var ✓' if profile.has_docker else 'Yok ✗' }} |
+
+---
+
+## Güvenlik Bulguları
+
+### SAST — Statik Kod Analizi ({{ sast_findings | length }} bulgu)
+
+{% if sast_findings %}
+| Severity | Kural | Dosya | Satır |
+|---|---|---|---|
+{% for f in sast_findings[:20] -%}
+| {{ f.severity }} | {{ f.rule_id | default('—') }} | {{ f.file | default('—') }} | {{ f.line | default('—') }} |
+{% endfor %}
+{% if sast_findings | length > 20 %}
+_... ve {{ sast_findings | length - 20 }} bulgu daha_
+{% endif %}
+{% else %}
+Temiz — SAST bulgusu yok.
+{% endif %}
+
+### SCA — Bağımlılık Güvenliği ({{ sca_findings | length }} CVE)
+
+{% if sca_findings %}
+| Severity | Paket | Versiyon | CVE | Düzeltme |
+|---|---|---|---|---|
+{% for f in sca_findings[:20] -%}
+| {{ f.severity }} | {{ f.package | default('—') }} | {{ f.version | default('—') }} | {{ f.vuln_id | default('—') }} | {{ f.fixed_in | default('—') }} |
+{% endfor %}
+{% if sca_findings | length > 20 %}
+_... ve {{ sca_findings | length - 20 }} CVE daha_
+{% endif %}
+{% else %}
+Temiz — SCA bulgusu yok.
+{% endif %}
+
+### Gizli Bilgi Taraması ({{ secret_findings | length }} bulgu)
+
+{% if secret_findings %}
+| Severity | Tür | Dosya | Maskeli Değer |
+|---|---|---|---|
+{% for f in secret_findings -%}
+| {{ f.severity }} | {{ f.secret_type | default(f.rule_id) | default('—') }} | {{ f.file | default('—') }} | {{ f.redacted_match | default('***') }} |
+{% endfor %}
+{% else %}
+Temiz — Hardcoded secret bulunamadı.
+{% endif %}
+
+### Pipeline Analizi
+
+{% if pipeline_analysis.has_pipeline %}
+**Mevcut pipeline'lar:**
+{% for p in pipeline_analysis.existing_pipelines -%}
+- `{{ p.path }}` ({{ p.platform }}) — Kapsam: {{ p.coverage_score }}/100
+{% endfor %}
+
+{% if pipeline_analysis.missing_steps %}
+**Eksik güvenlik adımları:** {{ pipeline_analysis.missing_steps | join(', ') }}
+{% endif %}
+{% else %}
+Repoda CI/CD pipeline bulunamadı.
+{% endif %}
+
+---
+
+## AI Risk Değerlendirmesi
+
+{{ llm_summary | default('LLM değerlendirmesi mevcut değil.') }}
+
+---
+
+## Önerilen CI/CD Pipeline
+
+```yaml
+{{ pipeline_yaml | default('Pipeline üretilemedi.') }}
+```
+
+---
+
+_Bu rapor DevSecOps AI tarafından otomatik olarak oluşturulmuştur._

@@ -272,6 +272,26 @@ function JobResultView({ data, navigate }) {
         </Section>
       )}
 
+      {/* İndirme butonları */}
+      {job_id && (
+        <Section icon="⬇️" title="Raporu İndir">
+          <div className="flex flex-wrap gap-3">
+            <a href={getJobYamlUrl(job_id)} download="pipeline.yml"
+               className="btn-ghost text-sm flex items-center gap-1.5">
+              ⚙️ Pipeline YAML
+            </a>
+            <a href={`/api/job/${job_id}/report.md`} download={`report-${job_id.slice(0,8)}.md`}
+               className="btn-ghost text-sm flex items-center gap-1.5">
+              📄 Markdown Rapor
+            </a>
+            <a href={`/api/job/${job_id}/report.pdf`} target="_blank" rel="noopener noreferrer"
+               className="btn-ghost text-sm flex items-center gap-1.5">
+              📑 PDF Rapor
+            </a>
+          </div>
+        </Section>
+      )}
+
       {/* Alt butonlar */}
       <div className="flex gap-3 pt-2">
         <button className="btn-primary flex-1" onClick={() => navigate('/')}>← Yeni Analiz</button>
