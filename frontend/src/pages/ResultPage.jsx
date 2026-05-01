@@ -2,6 +2,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import ScoreGauge from '../components/ScoreGauge.jsx';
 import PipelineViewer from '../components/PipelineViewer.jsx';
 import SeverityBadge, { RiskLevelBadge } from '../components/SeverityBadge.jsx';
+import DsommDashboard from '../components/DsommDashboard.jsx';
+import FindingsTable from '../components/FindingsTable.jsx';
+import { getJobYamlUrl } from '../api/client.js';
 
 // --- Küçük yardımcı bileşenler ---
 
@@ -202,6 +205,82 @@ const PLATFORM_LABELS = {
   jenkins:        { label: 'Jenkins',         icon: '☕' },
 };
 
+// ── Multi-agent job sonucu görünümü ──────────────────────────────────────────
+
+function JobResultView({ data, navigate }) {
+  const { profile = {}, dsomm, findings = {}, llm_summary, pipeline_yaml, job_id, elapsed_seconds } = data;
+
+  const totalFindings =
+    (findings.sast?.length ?? 0) +
+    (findings.sca?.length ?? 0) +
+    (findings.secret?.length ?? 0);
+
+  return (
+    <div className="space-y-8">
+      {/* Profil özeti */}
+      <Section icon="🔍" title="Proje Profili">
+        <div className="card">
+          <InfoChip label="Dil"            value={profile.language    ?? '—'} />
+          <InfoChip label="Framework"      value={profile.framework   ?? '—'} />
+          <InfoChip label="Paket Yöneticisi" value={profile.package_manager ?? '—'} />
+          <InfoChip label="Test Dosyaları" value={profile.has_tests ? 'Var' : 'Yok'} ok={profile.has_tests} />
+          <InfoChip label="Docker"         value={profile.has_docker ? 'Var' : 'Yok'} ok={profile.has_docker} />
+          {elapsed_seconds && (
+            <InfoChip label="Analiz Süresi" value={`${elapsed_seconds}s`} />
+          )}
+        </div>
+      </Section>
+
+      {/* DSOMM güvenlik olgunluk skoru */}
+      {dsomm && (
+        <Section icon="📊" title="Güvenlik Olgunluk Skoru (DSOMM)">
+          <div className="card">
+            <DsommDashboard dsomm={dsomm} />
+          </div>
+        </Section>
+      )}
+
+      {/* Bulgular — 4 sekme */}
+      <Section icon="🛡️" title={`Güvenlik Bulguları ${totalFindings > 0 ? `(${totalFindings})` : ''}`}>
+        <div className="card">
+          <FindingsTable findings={findings} />
+        </div>
+      </Section>
+
+      {/* LLM yorumu */}
+      {llm_summary && (
+        <Section icon="🤖" title="AI Risk Değerlendirmesi">
+          <div className="card">
+            <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{llm_summary}</p>
+          </div>
+        </Section>
+      )}
+
+      {/* Pipeline YAML */}
+      {pipeline_yaml && (
+        <Section icon="⚙️" title="Önerilen CI/CD Pipeline">
+          <PipelineViewer yaml={pipeline_yaml} />
+          {job_id && (
+            <a
+              href={getJobYamlUrl(job_id)}
+              download="pipeline.yml"
+              className="btn-ghost text-sm mt-2 inline-flex items-center gap-2"
+            >
+              ⬇ YAML'ı İndir
+            </a>
+          )}
+        </Section>
+      )}
+
+      {/* Alt butonlar */}
+      <div className="flex gap-3 pt-2">
+        <button className="btn-primary flex-1" onClick={() => navigate('/')}>← Yeni Analiz</button>
+        <button className="btn-ghost flex-1" onClick={() => navigate('/history')}>Geçmişi Görüntüle</button>
+      </div>
+    </div>
+  );
+}
+
 // --- Ana ResultPage ---
 export default function ResultPage() {
   const { state } = useLocation();
@@ -219,6 +298,22 @@ export default function ResultPage() {
 
   const { type, data, repoUrl, platform } = state;
   const repoName = repoUrl?.replace('https://github.com/', '');
+
+  // Multi-agent job sonucu ayrı görünümde
+  if (type === 'job') {
+    const repoName = (state.repoUrl ?? data.repo_url ?? '').replace('https://github.com/', '');
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-10">
+        <div className="mb-6">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-900/40 border border-blue-700/50 text-blue-300 text-xs font-semibold mb-2">
+            🤖 Multi-Agent Analiz
+          </span>
+          <h1 className="text-xl font-bold text-white break-all">{repoName}</h1>
+        </div>
+        <JobResultView data={data} navigate={navigate} />
+      </div>
+    );
+  }
 
   const TYPE_LABELS = {
     analyze:  { icon: '🔍', label: 'Hızlı Analiz' },
