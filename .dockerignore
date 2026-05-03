@@ -1,0 +1,13 @@
+venv/
+.env
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+frontend/node_modules/
+frontend/dist/
+DEMO.md
