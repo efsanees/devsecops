@@ -3,13 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getJob, subscribeJobProgress } from '../api/client.js';
 import AgentProgress from '../components/AgentProgress.jsx';
 
-// Agent görüntüleme konfigürasyonu
 const AGENT_DEFS = [
-  { key: 'project_profiler',  label: 'Proje Profili',           icon: '🔍' },
-  { key: 'sast',              label: 'Kod Analizi (SAST)',       icon: '🔬' },
-  { key: 'sca',               label: 'Bağımlılık Taraması',      icon: '📦' },
-  { key: 'secret_detection',  label: 'Gizli Bilgi Taraması',     icon: '🔑' },
-  { key: 'pipeline_analyzer', label: 'Pipeline Analizi',         icon: '⚙️' },
+  { key: 'project_profiler',  label: 'Proje Profili',       icon: '🔍' },
+  { key: 'sast',              label: 'Kod Analizi (SAST)',   icon: '🔬' },
+  { key: 'sca',               label: 'Bağımlılık Taraması',  icon: '📦' },
+  { key: 'secret_detection',  label: 'Gizli Bilgi Taraması', icon: '🔑' },
+  { key: 'pipeline_analyzer', label: 'Pipeline Analizi',     icon: '⚙️' },
 ];
 
 const INITIAL_AGENTS = Object.fromEntries(
@@ -21,33 +20,60 @@ function completedCount(agents) {
 }
 
 export default function ProgressPage() {
-  const { jobId } = useParams();
-  const navigate  = useNavigate();
+  const { jobId }  = useParams();
+  const navigate   = useNavigate();
 
-  const [agents,  setAgents]  = useState(INITIAL_AGENTS);
-  const [message, setMessage] = useState('Analiz başlatılıyor…');
-  const [wsState, setWsState] = useState('connecting'); // connecting | open | closed | error
-  const closeWsRef = useRef(null);
+  const [agents,   setAgents]   = useState(INITIAL_AGENTS);
+  const [message,  setMessage]  = useState('Analiz başlatılıyor…');
+  const [wsState,  setWsState]  = useState('connecting');
+  const closeWsRef  = useRef(null);
+  // Job tamamlandıysa WebSocket kapanması hata değil
+  const jobDoneRef  = useRef(false);
 
-  // WebSocket bağlantısını kur
+  const goToResult = (repoUrl, result) => {
+    navigate('/result', { state: { type: 'job', data: result, repoUrl } });
+  };
+
+  // Job zaten tamamlanmış olabilir — önce DB'yi kontrol et
+  const checkJobAlready = async () => {
+    const { ok, data } = await getJob(jobId);
+    if (ok && data?.status === 'completed' && data?.result) {
+      jobDoneRef.current = true;
+      goToResult(data.repo_url, data.result);
+      return true;
+    }
+    if (ok && data?.status === 'failed') {
+      setMessage(`Analiz başarısız: ${data.error ?? 'Bilinmeyen hata'}`);
+      setWsState('error');
+      return true;
+    }
+    return false;
+  };
+
   const connect = () => {
     setWsState('connecting');
 
     closeWsRef.current = subscribeJobProgress(
       jobId,
       handleEvent,
-      (reason) => setWsState(reason === 'error' ? 'error' : 'closed'),
+      (reason) => {
+        // Job tamamlandıysa kapanma normaldir — hata gösterme
+        if (jobDoneRef.current) return;
+        setWsState(reason === 'error' ? 'error' : 'closed');
+      },
     );
 
     setWsState('open');
   };
 
   useEffect(() => {
-    connect();
+    // Önce job bitti mi diye kontrol et; bitmişse direkt geç
+    checkJobAlready().then((done) => {
+      if (!done) connect();
+    });
     return () => closeWsRef.current?.();
   }, [jobId]);
 
-  // Backend event'lerini işle
   const handleEvent = (event) => {
     const { type, agent, data, error, message: msg } = event;
 
@@ -77,13 +103,11 @@ export default function ProgressPage() {
     }
 
     if (type === 'job_completed') {
+      jobDoneRef.current = true;
       setMessage('Analiz tamamlandı! Rapora yönlendiriliyorsunuz…');
-      // Backend'den nihai sonucu çek, result sayfasına geçir
       getJob(jobId).then(({ ok, data: jobData }) => {
         if (ok && jobData?.result) {
-          navigate('/result', {
-            state: { type: 'job', data: jobData.result, repoUrl: jobData.repo_url },
-          });
+          goToResult(jobData.repo_url, jobData.result);
         }
       });
     }
@@ -94,20 +118,18 @@ export default function ProgressPage() {
     }
   };
 
-  const done   = completedCount(agents);
-  const total  = AGENT_DEFS.length;
-  const pct    = Math.round((done / total) * 100);
+  const done  = completedCount(agents);
+  const total = AGENT_DEFS.length;
+  const pct   = Math.round((done / total) * 100);
 
   return (
     <div className="max-w-xl mx-auto px-4 py-16">
-      {/* Başlık */}
       <div className="text-center mb-10">
         <div className="text-5xl mb-4">🛡️</div>
         <h1 className="text-2xl font-bold text-white mb-2">Analiz Çalışıyor</h1>
         <p className="text-slate-400 text-sm break-all font-mono">{jobId}</p>
       </div>
 
-      {/* İlerleme çubuğu */}
       <div className="mb-8">
         <div className="flex justify-between text-xs text-slate-400 mb-2">
           <span>{message}</span>
@@ -121,7 +143,6 @@ export default function ProgressPage() {
         </div>
       </div>
 
-      {/* Agent kartları */}
       <div className="space-y-3">
         {AGENT_DEFS.map(({ key, label, icon }) => (
           <AgentProgress
@@ -136,16 +157,13 @@ export default function ProgressPage() {
         ))}
       </div>
 
-      {/* Bağlantı sorunları */}
-      {(wsState === 'closed' || wsState === 'error') && (
+      {/* Sadece gerçek hata durumlarında göster */}
+      {(wsState === 'closed' || wsState === 'error') && !jobDoneRef.current && (
         <div className="mt-8 p-4 bg-red-900/30 border border-red-700 rounded-xl text-center space-y-3">
           <p className="text-red-300 text-sm">
             {wsState === 'error' ? 'Bağlantı hatası oluştu.' : 'Bağlantı kesildi.'}
           </p>
-          <button
-            onClick={connect}
-            className="btn-primary text-sm px-5 py-2"
-          >
+          <button onClick={connect} className="btn-primary text-sm px-5 py-2">
             Yeniden Bağlan
           </button>
         </div>
