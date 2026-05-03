@@ -47,7 +47,20 @@ def download_repo(repo_url: str, token: str = "") -> tuple[str, str]:
     headers = {"Authorization": f"Bearer {token}"} if token else {}
 
     logger.info("Repo indiriliyor: %s", zip_url)
-    response = requests.get(zip_url, headers=headers, timeout=60, allow_redirects=True)
+    try:
+        response = requests.get(zip_url, headers=headers, timeout=60, allow_redirects=True)
+    except requests.Timeout:
+        raise RuntimeError("Repo indirme zaman aşımına uğradı (60s). GitHub erişilebilir mi?")
+    except requests.ConnectionError:
+        raise RuntimeError("GitHub'a bağlanılamadı. İnternet bağlantısını kontrol et.")
+
+    if response.status_code == 404:
+        hint = " Token gerekebilir (özel repo)." if not token else ""
+        raise RuntimeError(f"Repo bulunamadı: {repo_path}.{hint}")
+    if response.status_code == 403:
+        raise RuntimeError(f"GitHub erişim reddedildi (403). Rate limit veya yetki sorunu.")
+    if response.status_code == 401:
+        raise RuntimeError("GitHub token geçersiz veya süresi dolmuş.")
     response.raise_for_status()
 
     base_dir = tempfile.mkdtemp(prefix="devsecops_")

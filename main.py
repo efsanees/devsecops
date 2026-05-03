@@ -37,10 +37,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="DevSecOps AI", lifespan=lifespan)
 
-# CORS — frontend gelistirme sunucusuna izin ver
+# CORS — dev (Vite:5173) + Docker (nginx:80) + env'den ek origin
+import os as _os
+_default_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:80",
+    "http://localhost",
+    "http://127.0.0.1",
+]
+_extra = [o.strip() for o in _os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+_origins = list(dict.fromkeys(_default_origins + _extra))  # dedupe, sıra korur
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
