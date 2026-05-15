@@ -1,8 +1,146 @@
 import json
 import logging
+import os
 from app.github.github_service import get_all_files, get_repo_files, get_file_content, find_file_path
 
 logger = logging.getLogger(__name__)
+
+
+def analyze_from_local_dir(repo_dir: str) -> dict:
+    """
+    İndirilmiş repo dizininden dil/framework/test/docker tespiti yapar.
+    GitHub API başarısız olduğunda orchestrator tarafından fallback olarak çağrılır.
+    """
+    all_files = []
+    for root, _dirs, files in os.walk(repo_dir):
+        for fname in files:
+            full = os.path.join(root, fname)
+            rel = os.path.relpath(full, repo_dir).replace("\\", "/")
+            all_files.append(rel)
+
+    if not all_files:
+        return {"language": "unknown", "framework": "unknown",
+                "has_tests": False, "has_docker": False,
+                "package_manager": "unknown", "files": []}
+
+    result = {
+        "language": "unknown", "framework": "unknown",
+        "has_tests": False, "has_docker": False,
+        "package_manager": "unknown", "files": all_files,
+    }
+
+    has_test_files = any(
+        ("test_" in f or "_test" in f or "spec" in f.lower())
+        and f.endswith((".py", ".js", ".ts", ".cs", ".java", ".go", ".rs", ".rb", ".php"))
+        for f in all_files
+    )
+
+    def _read(filename: str) -> str:
+        path = find_file_path(all_files, filename)
+        if path:
+            try:
+                with open(os.path.join(repo_dir, path), encoding="utf-8", errors="ignore") as fh:
+                    return fh.read()
+            except OSError:
+                pass
+        return ""
+
+    # package.json → Node.js
+    if find_file_path(all_files, "package.json"):
+        result["language"] = "Node.js"
+        result["package_manager"] = "npm"
+        content = _read("package.json")
+        try:
+            pkg = json.loads(content)
+            deps = [d.lower() for d in {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}]
+            if "react" in deps or "react-dom" in deps:
+                result["framework"] = "React"
+            elif "next" in deps:
+                result["framework"] = "Next.js"
+            elif "vue" in deps:
+                result["framework"] = "Vue"
+            elif "express" in deps:
+                result["framework"] = "Express"
+            elif "@angular/core" in deps:
+                result["framework"] = "Angular"
+            if any(d in deps for d in ["jest", "mocha", "vitest", "jasmine", "cypress"]):
+                result["has_tests"] = True
+        except Exception:
+            pass
+
+    # Python
+    if any(find_file_path(all_files, f) for f in ["requirements.txt", "setup.py", "pyproject.toml"]):
+        result["language"] = "Python"
+        result["package_manager"] = "pip"
+        req = _read("requirements.txt")
+        if req:
+            if "pytest" in req.lower():
+                result["has_tests"] = True
+            if "django" in req.lower():
+                result["framework"] = "Django"
+            elif "flask" in req.lower():
+                result["framework"] = "Flask"
+            elif "fastapi" in req.lower():
+                result["framework"] = "FastAPI"
+
+    # .NET
+    if any(f.endswith(".csproj") or f.endswith(".sln") for f in all_files):
+        result["language"] = ".NET"
+        result["package_manager"] = "nuget"
+
+    # Java
+    if find_file_path(all_files, "pom.xml"):
+        result["language"] = "Java (Maven)"
+        result["package_manager"] = "maven"
+    elif find_file_path(all_files, "build.gradle"):
+        result["language"] = "Java (Gradle)"
+        result["package_manager"] = "gradle"
+
+    # Go
+    if find_file_path(all_files, "go.mod"):
+        result["language"] = "Go"
+        result["package_manager"] = "go modules"
+        result["has_tests"] = any(f.endswith("_test.go") for f in all_files)
+
+    # Rust
+    if find_file_path(all_files, "Cargo.toml"):
+        result["language"] = "Rust"
+        result["package_manager"] = "cargo"
+
+    # PHP
+    if find_file_path(all_files, "composer.json"):
+        result["language"] = "PHP"
+        result["package_manager"] = "composer"
+
+    # Ruby
+    if find_file_path(all_files, "Gemfile"):
+        result["language"] = "Ruby"
+        result["package_manager"] = "bundler"
+
+    # Dosya uzantısına göre son fallback
+    if result["language"] == "unknown":
+        ext_counts: dict[str, int] = {}
+        for f in all_files:
+            ext = os.path.splitext(f)[1].lower()
+            if ext:
+                ext_counts[ext] = ext_counts.get(ext, 0) + 1
+        ext_map = {
+            ".py": "Python", ".js": "JavaScript", ".ts": "TypeScript",
+            ".java": "Java", ".go": "Go", ".rs": "Rust", ".cs": ".NET",
+            ".php": "PHP", ".rb": "Ruby", ".cpp": "C++", ".c": "C",
+            ".kt": "Kotlin", ".swift": "Swift",
+        }
+        dominant = max(ext_counts, key=ext_counts.get) if ext_counts else ""
+        if dominant in ext_map:
+            result["language"] = ext_map[dominant]
+
+    if has_test_files:
+        result["has_tests"] = True
+    if find_file_path(all_files, "Dockerfile") or find_file_path(all_files, "docker-compose.yml"):
+        result["has_docker"] = True
+
+    logger.info("[LocalProfiler] %s / %s (%d dosya)", result["language"], result["framework"], len(all_files))
+    return result
 
 
 def analyze_repo(repo_url: str, token: str = "") -> dict:

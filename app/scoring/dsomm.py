@@ -102,19 +102,24 @@ def calculate_dsomm(
     details["testing"] = t_checks
 
     # ── 3. Implementation (25 puan) ───────────────────────────────────────
-    # Güvenlik açığı sayısına göre düşen puan sistemi
+    # Güvenlik açığı sayısına göre düşen puan sistemi.
+    # Docker yoksa Semgrep/Trivy atlandı → tarama eksik → max puan düşürülür.
     impl_score = 0
 
+    docker_available = sast_result.get("docker_available", True)
+
     sast_sev = sast_result.get("severity_counts", {})
-    sast_critical = sast_sev.get("HIGH", 0)   # Bandit'te CRITICAL yok, HIGH en üst
-    # Her HIGH bulgu 2 puan düşürür, max 15 puan
-    sast_pts = max(0, 15 - sast_critical * 2)
+    sast_critical = sast_sev.get("HIGH", 0)
+    # Docker varsa max 15, yoksa Semgrep atlandığı için max 8
+    sast_max = 15 if docker_available else 8
+    sast_pts = max(0, sast_max - sast_critical * 2)
     impl_score += sast_pts
 
     sca_sev = sca_result.get("severity_counts", {})
     sca_critical = sca_sev.get("CRITICAL", 0) + sca_sev.get("HIGH", 0)
-    # Her CRITICAL/HIGH CVE 2 puan düşürür, max 10 puan
-    sca_pts = max(0, 10 - sca_critical * 2)
+    # Docker varsa max 10, yoksa Trivy atlandığı için max 6
+    sca_max = 10 if docker_available else 6
+    sca_pts = max(0, sca_max - sca_critical * 2)
     impl_score += sca_pts
 
     categories["implementation"] = impl_score
@@ -123,6 +128,8 @@ def calculate_dsomm(
         "sast_points": sast_pts,
         "sca_critical_high_count": sca_critical,
         "sca_points": sca_pts,
+        "docker_available": docker_available,
+        "note": None if docker_available else "Semgrep/Trivy atlandı — tam tarama için Docker gerekli",
     }
 
     # ── 4. Information Gathering (10 puan) ────────────────────────────────

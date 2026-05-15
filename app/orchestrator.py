@@ -214,6 +214,18 @@ class Orchestrator:
             state["temp_dir"] = repo_dir
             logger.info("[Orchestrator] Repo hazır: %s", repo_dir)
 
+            # GitHub API başarısız olduysa yerel dosyalardan profil güncelle
+            if profile.get("language") == "unknown" and repo_dir:
+                from app.analyzer.repo_analyzer import analyze_from_local_dir
+                local_profile = await asyncio.to_thread(analyze_from_local_dir, repo_dir)
+                if local_profile.get("language") != "unknown":
+                    profile.update(local_profile)
+                    state["profile"] = profile
+                    file_list = local_profile.get("files", [])
+                    state["file_list"] = file_list
+                    logger.info("[Orchestrator] Yerel profil: %s / %s",
+                                profile["language"], profile["framework"])
+
             # ── ADIM 3: 4 agent paralel ───────────────────────────────────
             # Her agent state'i okur, return_exceptions ile birinden
             # exception gelse diğerleri durmuyor.
