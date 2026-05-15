@@ -49,7 +49,7 @@ Project info:
 - Framework: {analysis.get("framework", "unknown")}
 - Has Docker: {analysis["has_docker"]}
 - Has Tests: {analysis["has_tests"]}
-- Files: {context[:100]}
+- Files: {[f for f in context if not f.startswith(('.github/', 'scripts/'))][:80]}
 
 Commands to use:
 - Build: {build_cmd}

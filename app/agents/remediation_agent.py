@@ -52,13 +52,16 @@ async def run_remediation(
         logger.debug("[Remediation] GROQ_API_KEY yok, atlandı")
         return
 
-    candidates = [
-        f for f in (sast_findings + sca_findings)
-        if f.get("severity", "").upper() in _HIGH_OR_CRITICAL
-    ][:_MAX_FINDINGS]
+    # Severity sırasına göre sırala — HIGH önce, hepsine öneri üret
+    _SEV_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+    all_findings = sorted(
+        sast_findings + sca_findings,
+        key=lambda f: _SEV_ORDER.get(f.get("severity", "").upper(), 4),
+    )
+    candidates = all_findings[:_MAX_FINDINGS]
 
     if not candidates:
-        logger.debug("[Remediation] HIGH/CRITICAL bulgu yok, atlandı")
+        logger.debug("[Remediation] Bulgu yok, atlandı")
         return
 
     lang = profile.get("language", "bilinmiyor")

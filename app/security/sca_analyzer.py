@@ -187,16 +187,19 @@ def _extract_fixed_version(vuln: dict) -> str:
 
 
 def _query_osv(packages: list[dict], ecosystem: str) -> list[dict]:
-    """OSV.dev Batch API'ye sorgu atar, bulgular listesi döner."""
-    if not packages:
+    """
+    OSV.dev Batch API'ye sorgu atar, bulgular listesi döner.
+    Versiyonu bilinmeyen paketleri atlar — sürümsüz sorgu tüm versiyonları
+    döndürür ve sonuçları anlamsız kılar.
+    """
+    versioned = [p for p in packages if p.get("version")]
+    if not versioned:
         return []
     queries = [
-        {
-            "package": {"name": p["name"], "ecosystem": ecosystem},
-            **({"version": p["version"]} if p.get("version") else {}),
-        }
-        for p in packages
+        {"package": {"name": p["name"], "ecosystem": ecosystem}, "version": p["version"]}
+        for p in versioned
     ]
+    packages = versioned  # zip için hizala
     try:
         resp = requests.post(OSV_BATCH_URL, json={"queries": queries}, timeout=OSV_TIMEOUT)
         resp.raise_for_status()

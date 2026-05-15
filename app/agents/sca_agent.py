@@ -89,8 +89,10 @@ class SCAAgent(Agent):
             else:
                 logger.warning("[SCA] Docker mevcut değil, Trivy atlandı")
 
-            # 3. Dedupe, CWE/OWASP zenginleştir
-            all_findings = [enrich_finding(f) for f in _dedupe(osv_findings, trivy_findings)]
+            # 3. Dedupe + versiyonsuz paketleri çıkar (sürümsüz CVE anlamsız)
+            deduped = _dedupe(osv_findings, trivy_findings)
+            deduped = [f for f in deduped if f.get("version") and f.get("version") != "?"]
+            all_findings = [enrich_finding(f) for f in deduped]
             all_findings.sort(key=lambda f: _severity_order(f.get("severity", "LOW")))
 
             severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
