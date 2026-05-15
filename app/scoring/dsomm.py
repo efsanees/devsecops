@@ -109,7 +109,7 @@ def calculate_dsomm(
     docker_available = sast_result.get("docker_available", True)
 
     sast_sev = sast_result.get("severity_counts", {})
-    sast_critical = sast_sev.get("HIGH", 0)
+    sast_critical = sast_sev.get("HIGH", 0) + sast_sev.get("CRITICAL", 0)
     # Docker varsa max 15, yoksa Semgrep atlandığı için max 8
     sast_max = 15 if docker_available else 8
     sast_pts = max(0, sast_max - sast_critical * 2)

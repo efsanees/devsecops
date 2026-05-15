@@ -96,7 +96,7 @@ def _normalize(raw: dict) -> dict:
         "type": "SAST",
         "rule_id": raw.get("check_id", ""),
         "severity": severity,
-        "file": raw.get("path", "").lstrip("/src/"),
+        "file": raw.get("path", "").removeprefix("/src/"),
         "line": raw.get("start", {}).get("line"),
         "message": extra.get("message", ""),
         "owasp_category": owasp or None,

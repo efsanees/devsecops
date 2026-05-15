@@ -20,6 +20,7 @@ Sonuç:
 
 import asyncio
 import logging
+import os
 import re
 from typing import Any
 
@@ -170,10 +171,24 @@ class PipelineAnalyzerAgent(Agent):
         # Tüm platformlardaki adımların birleşik tespiti (en kapsamlı sonuç)
         combined_detected: dict[str, bool] = {cat: False for cat in ALL_CATEGORIES}
 
+        temp_dir = state.get("temp_dir")
+
         for path, platform in pipeline_files:
             logger.info("[PipelineAnalyzer] Analiz ediliyor: %s (%s)", path, platform)
 
-            content = await asyncio.to_thread(get_file_content, repo_url, token, path)
+            content: str | None = None
+            # Prefer already-downloaded repo to avoid GitHub API rate limits
+            if temp_dir:
+                local_path = os.path.join(temp_dir, path.replace("/", os.sep))
+                try:
+                    with open(local_path, encoding="utf-8", errors="ignore") as fh:
+                        content = fh.read()
+                except OSError:
+                    pass
+
+            if not content:
+                content = await asyncio.to_thread(get_file_content, repo_url, token, path)
+
             if not content:
                 logger.warning("[PipelineAnalyzer] İçerik alınamadı: %s", path)
                 continue

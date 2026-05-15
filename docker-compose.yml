@@ -8,6 +8,7 @@ services:
     env_file: .env
     environment:
       - ALLOWED_ORIGINS=http://localhost,http://localhost:80
+      - DATABASE_URL=sqlite:////app/data/devsecops.db
     volumes:
       - db_data:/app/data
       # Docker-in-Docker: agent'ların Semgrep/Trivy/Gitleaks çalıştırması için

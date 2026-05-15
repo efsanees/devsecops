@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import subprocess
+import sys
 import tempfile
 from typing import Callable
 
@@ -42,11 +43,21 @@ def _collect_python_files(all_files: list[str]) -> list[str]:
     return (src + tests)[:MAX_FILES]
 
 
+def _bandit_executable() -> str:
+    """Return the bandit binary co-located with the running Python interpreter."""
+    scripts_dir = os.path.dirname(sys.executable)
+    for name in ("bandit.exe", "bandit"):
+        candidate = os.path.join(scripts_dir, name)
+        if os.path.isfile(candidate):
+            return candidate
+    return "bandit"  # fall back to PATH
+
+
 def _run_bandit(tmp_dir: str) -> tuple[list[dict], str | None]:
     """Bandit çalıştırır. (findings, hata_nedeni) döndürür."""
     try:
         proc = subprocess.run(
-            ["bandit", "-r", tmp_dir, "-f", "json", "-q", "--exit-zero"],
+            [_bandit_executable(), "-r", tmp_dir, "-f", "json", "-q", "--exit-zero"],
             capture_output=True, text=True, timeout=BANDIT_TIMEOUT,
         )
     except FileNotFoundError:

@@ -39,8 +39,10 @@ def _parse_requirements(content: str) -> list[dict]:
             continue
         m = re.match(r"^([a-zA-Z0-9_.\-]+(?:\[[^\]]+\])?)\s*(?:[><=!~]+\s*([^\s,;]+))?", line)
         if m:
+            # Strip extras like [all] from package name — OSV uses bare names
+            name = re.sub(r"\[.*?\]", "", m.group(1)).strip()
             packages.append({
-                "name": m.group(1).strip(),
+                "name": name,
                 "version": (m.group(2) or "").strip().lstrip("="),
             })
     return packages
