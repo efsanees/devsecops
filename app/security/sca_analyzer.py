@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import xml.etree.ElementTree as ET
-from typing import Callable
 
 import requests
 
@@ -233,114 +233,8 @@ def _query_osv(packages: list[dict], ecosystem: str) -> list[dict]:
     return findings
 
 
-def _find_all(all_files: list[str], suffix: str) -> list[str]:
-    """Verilen suffix ile biten tüm dosyaları döner."""
-    return [f for f in all_files if f.endswith(suffix)]
-
-
 # ---------------------------------------------------------------------------
-# Ana fonksiyon
-# ---------------------------------------------------------------------------
-
-def analyze_dependencies(
-    repo_url: str,
-    token: str,
-    all_files: list[str],
-    get_file_content_fn: Callable,
-) -> dict:
-    """
-    Desteklenen tüm ekosistemler için bağımlılık analizi yapar.
-    OSV.dev Batch API kullanılır.
-    """
-    from app.github.github_service import find_file_path
-
-    if not all_files:
-        return {
-            "packages_checked": 0,
-            "findings": [],
-            "skipped_reason": "Repo dosya listesi alınamadı — GitHub token ekleyip tekrar deneyin",
-        }
-
-    findings: list[dict] = []
-    packages_checked = 0
-    dep_files_found = False
-
-    # ── PyPI ──────────────────────────────────────────────────────────
-    req_path = find_file_path(all_files, "requirements.txt")
-    if req_path:
-        dep_files_found = True
-        content = get_file_content_fn(repo_url, token, req_path)
-        if content:
-            pkgs = _parse_requirements(content)
-            packages_checked += len(pkgs)
-            findings.extend(_query_osv(pkgs, "PyPI"))
-
-    # ── npm ───────────────────────────────────────────────────────────
-    pkg_path = find_file_path(all_files, "package.json")
-    if pkg_path:
-        dep_files_found = True
-        content = get_file_content_fn(repo_url, token, pkg_path)
-        if content:
-            pkgs = _parse_package_json(content)
-            packages_checked += len(pkgs)
-            findings.extend(_query_osv(pkgs, "npm"))
-
-    # ── NuGet (.csproj) ───────────────────────────────────────────────
-    csproj_files = _find_all(all_files, ".csproj")
-    if csproj_files:
-        dep_files_found = True
-        for csproj_path in csproj_files[:5]:   # en fazla 5 proje dosyası
-            content = get_file_content_fn(repo_url, token, csproj_path)
-            if content:
-                pkgs = _parse_csproj(content)
-                packages_checked += len(pkgs)
-                findings.extend(_query_osv(pkgs, "NuGet"))
-
-    # ── Maven (pom.xml) ───────────────────────────────────────────────
-    pom_path = find_file_path(all_files, "pom.xml")
-    if pom_path:
-        dep_files_found = True
-        content = get_file_content_fn(repo_url, token, pom_path)
-        if content:
-            pkgs = _parse_pom_xml(content)
-            packages_checked += len(pkgs)
-            findings.extend(_query_osv(pkgs, "Maven"))
-
-    # ── Go (go.mod) ───────────────────────────────────────────────────
-    gomod_path = find_file_path(all_files, "go.mod")
-    if gomod_path:
-        dep_files_found = True
-        content = get_file_content_fn(repo_url, token, gomod_path)
-        if content:
-            pkgs = _parse_go_mod(content)
-            packages_checked += len(pkgs)
-            findings.extend(_query_osv(pkgs, "Go"))
-
-    # ── Rust (Cargo.lock) ─────────────────────────────────────────────
-    cargo_lock_path = find_file_path(all_files, "Cargo.lock")
-    if cargo_lock_path:
-        dep_files_found = True
-        content = get_file_content_fn(repo_url, token, cargo_lock_path)
-        if content:
-            pkgs = _parse_cargo_lock(content)
-            packages_checked += len(pkgs)
-            findings.extend(_query_osv(pkgs, "crates.io"))
-
-    result: dict = {"packages_checked": packages_checked, "findings": findings}
-    if packages_checked == 0:
-        if dep_files_found:
-            result["skipped_reason"] = "Bağımlılık dosyaları boş veya okunamadı"
-        else:
-            result["skipped_reason"] = (
-                "Desteklenen bağımlılık dosyası bulunamadı "
-                "(requirements.txt, package.json, *.csproj, pom.xml, go.mod, Cargo.lock)"
-            )
-    logger.info(f"SCA tamamlandı: {packages_checked} paket, {len(findings)} bulgu")
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Lokal dizinden okuma (temp_dir varsa GitHub API'ye gerek yok)
+# Lokal dizinden okuma — SCAAgent tarafından kullanılır
 # ---------------------------------------------------------------------------
 
 _DEP_FILES = {
@@ -355,10 +249,7 @@ _DEP_FILES = {
 def analyze_dependencies_from_dir(repo_dir: str) -> dict:
     """
     İndirilmiş repo dizininden bağımlılık dosyalarını okur, OSV.dev'e sorar.
-    GitHub API çağrısı yapmaz — temp_dir varken kullanılır.
     """
-    import os
-
     findings: list[dict] = []
     packages_checked = 0
     dep_files_found = False

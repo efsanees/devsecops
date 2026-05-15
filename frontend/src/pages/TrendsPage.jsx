@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { getTrends } from '../api/client.js';
+import { getTrends, getJob, getJobsHistory } from '../api/client.js';
 import TrendChart from '../components/TrendChart.jsx';
 
 export default function TrendsPage() {
@@ -8,16 +8,38 @@ export default function TrendsPage() {
   const navigate = useNavigate();
   const repoUrl = searchParams.get('repo_url') ?? '';
 
-  const [data, setData]     = useState([]);
+  const [data, setData]       = useState([]);
+  const [repoList, setRepoList] = useState([]);   // paramsız modda gösterilir
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState('');
+  const [error, setError]     = useState('');
 
   useEffect(() => {
+    setLoading(true);
+    setError('');
+
     if (!repoUrl) {
-      setLoading(false);
-      setError('repo_url parametresi eksik');
+      // Paramsız geldi → birden çok analizi olan repoları listele
+      getJobsHistory(100).then((res) => {
+        setLoading(false);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        const completed = res.data.filter((j) => j.status === 'completed');
+        const counts = {};
+        completed.forEach((j) => {
+          counts[j.repo_url] = (counts[j.repo_url] || 0) + 1;
+        });
+        // En az 2 analizi olan repolar (trend göstermek için anlamlı)
+        const repos = Object.entries(counts)
+          .filter(([_, c]) => c >= 2)
+          .sort((a, b) => b[1] - a[1])
+          .map(([url, count]) => ({ url, count }));
+        setRepoList(repos);
+      });
       return;
     }
+
     getTrends(repoUrl).then((res) => {
       setLoading(false);
       if (res.ok) setData(res.data);
@@ -27,13 +49,73 @@ export default function TrendsPage() {
 
   const repoName = repoUrl.replace('https://github.com/', '');
 
+  // ─────────────────────────────────────────────
+  // Paramsız mod: repo seçici
+  // ─────────────────────────────────────────────
+  if (!repoUrl) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
+        <div>
+          <h1 className="text-xl font-bold text-white">📈 Trendler</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Birden fazla analizi olan repolar — DSOMM skor değişimini görmek için seçin
+          </p>
+        </div>
+
+        {loading && (
+          <div className="flex justify-center py-16">
+            <span className="text-slate-500 animate-pulse">Yükleniyor...</span>
+          </div>
+        )}
+
+        {error && <div className="card border-red-700 text-red-300 text-sm">⚠ {error}</div>}
+
+        {!loading && !error && repoList.length === 0 && (
+          <div className="text-center py-16">
+            <p className="text-3xl mb-3">📭</p>
+            <p className="text-slate-400">
+              Henüz birden fazla analizi olan repo yok.
+            </p>
+            <p className="text-slate-500 text-xs mt-1">
+              Bir repoyu en az 2 kez analiz ettiğinizde trend grafiği oluşur.
+            </p>
+            <button className="btn-primary mt-4" onClick={() => navigate('/')}>
+              Yeni Analiz Başlat
+            </button>
+          </div>
+        )}
+
+        {repoList.length > 0 && (
+          <div className="space-y-2">
+            {repoList.map((r) => (
+              <button
+                key={r.url}
+                onClick={() => navigate(`/trends?repo_url=${encodeURIComponent(r.url)}`)}
+                className="card w-full text-left flex items-center justify-between hover:border-blue-500 transition-colors"
+              >
+                <span className="text-slate-200 font-medium truncate">
+                  {r.url.replace('https://github.com/', '')}
+                </span>
+                <span className="text-xs text-slate-500 ml-3 shrink-0">
+                  {r.count} analiz →
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // Paramlı mod: belirli repo için trend
+  // ─────────────────────────────────────────────
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 space-y-8">
-      {/* Başlık */}
       <div>
-        <button onClick={() => navigate('/history')}
+        <button onClick={() => navigate('/trends')}
           className="text-xs text-slate-500 hover:text-slate-300 mb-3 flex items-center gap-1">
-          ← Geçmişe Dön
+          ← Tüm Trendler
         </button>
         <h1 className="text-xl font-bold text-white break-all">
           📈 Trend: {repoName}
@@ -49,9 +131,7 @@ export default function TrendsPage() {
         </div>
       )}
 
-      {error && (
-        <div className="card border-red-700 text-red-300 text-sm">⚠ {error}</div>
-      )}
+      {error && <div className="card border-red-700 text-red-300 text-sm">⚠ {error}</div>}
 
       {!loading && !error && data.length === 0 && (
         <div className="text-center py-16">
@@ -65,7 +145,6 @@ export default function TrendsPage() {
 
       {data.length > 0 && (
         <>
-          {/* Grafik */}
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-white">DSOMM Skor Değişimi</h2>
             <div className="card">
@@ -73,7 +152,6 @@ export default function TrendsPage() {
             </div>
           </section>
 
-          {/* Analiz listesi */}
           <section className="space-y-3">
             <h2 className="text-base font-semibold text-white">Analizler ({data.length})</h2>
             <div className="space-y-2">
@@ -108,9 +186,12 @@ export default function TrendsPage() {
                       {d.total_findings} bulgu
                     </div>
                     <button
-                      onClick={() => navigate(`/result`, {
-                        state: { data: { job_id: d.job_id }, repoUrl: repoUrl }
-                      })}
+                      onClick={async () => {
+                        const { ok, data: jobData } = await getJob(d.job_id);
+                        if (ok && jobData?.result) {
+                          navigate(`/result/${d.job_id}`);
+                        }
+                      }}
                       className="text-xs text-blue-400 hover:text-blue-300 shrink-0"
                     >
                       #{d.job_id.slice(0, 8)}

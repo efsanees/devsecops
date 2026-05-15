@@ -1,11 +1,8 @@
 """
-SAST (Static Application Security Testing) Analyzer
------------------------------------------------------
-GitHub API'den Python kaynak dosyalarını geçici bir dizine indirir ve
-Bandit'i subprocess üzerinden çalıştırır.
+SAST Analyzer — Bandit subprocess wrapper.
 
-Dil kısıtı YOK: all_files listesinde .py dosyası varsa her zaman taranır.
-Bandit kurulu değilse veya dosya bulunamazsa skipped_reason ile açıklanır.
+Tek public fonksiyon: run_bandit_on_dir(repo_dir)
+SASTAgent tarafından çağrılır.
 """
 
 from __future__ import annotations
@@ -15,42 +12,20 @@ import logging
 import os
 import subprocess
 import sys
-import tempfile
-from typing import Callable
 
 logger = logging.getLogger(__name__)
 
-MAX_FILES = 60
 BANDIT_TIMEOUT = 90
-
-_EXCLUDED_DIRS = ("venv/", ".venv/", "migrations/", "node_modules/", ".git/", "dist/", "build/", "__pycache__/")
-_EXCLUDED_NAMES = ("conftest.py",)  # manage.py KASITLI olarak dahil — Django güvenlik bulguları önemli
-
-
-def _collect_python_files(all_files: list[str]) -> list[str]:
-    selected: list[str] = []
-    for f in all_files:
-        if not f.endswith(".py"):
-            continue
-        if any(f.startswith(ex) or f"/{ex.rstrip('/')}" in f for ex in _EXCLUDED_DIRS):
-            continue
-        if os.path.basename(f) in _EXCLUDED_NAMES:
-            continue
-        selected.append(f)
-
-    src = [f for f in selected if "test" not in f.lower()]
-    tests = [f for f in selected if "test" in f.lower()]
-    return (src + tests)[:MAX_FILES]
 
 
 def _bandit_executable() -> str:
-    """Return the bandit binary co-located with the running Python interpreter."""
+    """Çalışan Python interpreter ile aynı dizindeki bandit binary'sini bulur."""
     scripts_dir = os.path.dirname(sys.executable)
     for name in ("bandit.exe", "bandit"):
         candidate = os.path.join(scripts_dir, name)
-        if os.path.isfile(candidate):
+        if os.path.exists(candidate):
             return candidate
-    return "bandit"  # fall back to PATH
+    return "bandit"  # PATH'e güven
 
 
 def _run_bandit(tmp_dir: str) -> tuple[list[dict], str | None]:
@@ -91,8 +66,10 @@ def _run_bandit(tmp_dir: str) -> tuple[list[dict], str | None]:
             "file": fname,
             "line": issue.get("line_number"),
             "issue_id": issue.get("test_id", ""),
+            "rule_id": issue.get("test_id", ""),
             "issue_name": issue.get("test_name", ""),
             "summary": issue.get("issue_text", ""),
+            "message": issue.get("issue_text", ""),
             "more_info": issue.get("more_info", ""),
             "code_snippet": issue.get("code", "").strip(),
         })
@@ -100,74 +77,14 @@ def _run_bandit(tmp_dir: str) -> tuple[list[dict], str | None]:
     return findings, None
 
 
-def analyze_static(
-    repo_url: str,
-    token: str,
-    all_files: list[str],
-    language: str,
-    get_file_content_fn: Callable,
-) -> dict:
-    """
-    Tüm .py dosyalarını tarar — dil parametresine bakılmaksızın.
-
-    Döndürür:
-        { files_scanned, findings, skipped_reason (opsiyonel) }
-    """
-    py_files = _collect_python_files(all_files)
-
-    if not py_files:
-        if not all_files:
-            reason = "Repo dosya listesi alınamadı — GitHub token ekleyip tekrar deneyin"
-        elif language not in ("Python", "unknown"):
-            reason = f"{language} için SAST henüz desteklenmiyor (yakında: Java, Go)"
-        else:
-            reason = "Repo'da Python dosyası bulunamadı"
-        logger.info(f"SAST atlandı: {reason}")
-        return {"files_scanned": 0, "findings": [], "skipped_reason": reason}
-
-    logger.info(f"SAST: {len(py_files)} Python dosyası indiriliyor")
-
-    with tempfile.TemporaryDirectory(prefix="sast_") as tmp_dir:
-        fetched = 0
-        for path in py_files:
-            content = get_file_content_fn(repo_url, token, path)
-            if content is None:
-                continue
-            dest = os.path.join(tmp_dir, path)
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
-            try:
-                with open(dest, "w", encoding="utf-8") as fh:
-                    fh.write(content)
-                fetched += 1
-            except OSError as exc:
-                logger.warning(f"Dosya yazılamadı ({path}): {exc}")
-
-        if fetched == 0:
-            return {
-                "files_scanned": 0,
-                "findings": [],
-                "skipped_reason": "Dosya içerikleri indirilemedi — token gerekebilir",
-            }
-
-        logger.info(f"SAST: Bandit {fetched} dosyaya çalıştırılıyor")
-        findings, error = _run_bandit(tmp_dir)
-
-    result: dict = {"files_scanned": fetched, "findings": findings}
-    if error:
-        result["skipped_reason"] = error
-    logger.info(f"SAST tamamlandı: {fetched} dosya, {len(findings)} bulgu")
-    return result
-
-
 def run_bandit_on_dir(repo_dir: str) -> list[dict]:
     """
     İndirilmiş repo dizini üzerinde Bandit çalıştırır.
-    SASTAgent tarafından kullanılır (dosya bazlı indirme yerine tam dizin).
+    SASTAgent tarafından kullanılır.
     """
     findings, error = _run_bandit(repo_dir)
     if error:
         logger.warning("Bandit hatası: %s", error)
-    # source alanı ekle — SASTAgent normalizasyonu için
     for f in findings:
         f["source"] = "bandit"
     return findings

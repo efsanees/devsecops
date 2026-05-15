@@ -164,13 +164,24 @@ export default function HistoryPage() {
                       {timeAgo(r.finished_at ?? r.created_at)}
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <button
-                        onClick={() => handleTrends(r.repo_url)}
-                        className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-                        title="Trend"
-                      >
-                        📈
-                      </button>
+                      <div className="flex gap-2 justify-end">
+                        {r.status === 'completed' && (
+                          <button
+                            onClick={() => navigate(`/result/${r.job_id}`)}
+                            className="text-xs text-slate-500 hover:text-blue-300 transition-colors"
+                            title="Sonucu görüntüle"
+                          >
+                            🔍
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleTrends(r.repo_url)}
+                          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                          title="Trend"
+                        >
+                          📈
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

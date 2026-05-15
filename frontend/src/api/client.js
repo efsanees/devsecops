@@ -41,6 +41,18 @@ export function getJobYamlUrl(jobId) {
   return `${base}/job/${jobId}/yaml`;
 }
 
+// Markdown rapor URL'i (indirilebilir)
+export function getJobReportMdUrl(jobId) {
+  const base = import.meta.env.VITE_API_URL ?? '/api';
+  return `${base}/job/${jobId}/report.md`;
+}
+
+// PDF rapor URL'i (yeni sekmede açılır)
+export function getJobReportPdfUrl(jobId) {
+  const base = import.meta.env.VITE_API_URL ?? '/api';
+  return `${base}/job/${jobId}/report.pdf`;
+}
+
 // Son N analiz jobunu döner (History sayfası için)
 export async function getJobsHistory(limit = 30) {
   try {

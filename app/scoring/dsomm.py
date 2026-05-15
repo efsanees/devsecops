@@ -54,7 +54,6 @@ def calculate_dsomm(
     bd_checks: dict[str, bool] = {}
 
     has_pipeline = pipeline_result.get("has_pipeline", False)
-    missing_steps = set(pipeline_result.get("missing_steps", []))
     detected_steps = set()
     for p in pipeline_result.get("existing_pipelines", []):
         detected_steps.update(p.get("detected_steps", []))
@@ -133,11 +132,19 @@ def calculate_dsomm(
     }
 
     # ── 4. Information Gathering (10 puan) ────────────────────────────────
+    # Docker yoksa Gitleaks atlandı → "0 secret" doğru olmayabilir, max'ı düşür.
     secret_count = secret_result.get("total_count", 0)
-    ig_score = 10 if secret_count == 0 else max(0, 10 - secret_count * 2)
+    secret_skipped = bool(secret_result.get("skipped_reason"))
+    ig_max = 5 if secret_skipped else 10
+    if secret_count == 0:
+        ig_score = ig_max
+    else:
+        ig_score = max(0, ig_max - secret_count * 2)
     categories["information_gathering"] = ig_score
     details["information_gathering"] = {
         "hardcoded_secrets_found": secret_count,
+        "scanner_skipped": secret_skipped,
+        "max_points": ig_max,
         "points": ig_score,
     }
 

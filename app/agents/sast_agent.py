@@ -173,5 +173,4 @@ class SASTAgent(Agent):
         finally:
             # Eğer bu agent indirdiyse temizle (orchestrator indirdiyse o temizler)
             if base_dir:
-                import shutil
                 shutil.rmtree(base_dir, ignore_errors=True)

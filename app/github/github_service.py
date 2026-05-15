@@ -77,32 +77,3 @@ def find_file_path(files: list, target: str) -> str | None:
     return None
 
 
-def push_to_github(repo_url: str, token: str, yaml_content: str) -> dict:
-    repo_path = repo_url.replace("https://github.com/", "")
-    api_url = f"https://api.github.com/repos/{repo_path}/contents/.github/workflows/devsecops.yml"
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-    }
-
-    try:
-        get_resp = requests.get(api_url, headers=headers, timeout=15)
-        sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
-    except requests.RequestException as exc:
-        logger.warning(f"push_to_github GET hatası: {exc}")
-        sha = None
-
-    data = {
-        "message": "chore: add DevSecOps pipeline via AI",
-        "content": base64.b64encode(yaml_content.encode()).decode(),
-    }
-    if sha:
-        data["sha"] = sha
-
-    try:
-        response = requests.put(api_url, headers=headers, json=data, timeout=15)
-        return response.json()
-    except requests.RequestException as exc:
-        logger.error(f"push_to_github PUT hatası: {exc}")
-        return {"error": str(exc)}

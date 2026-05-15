@@ -17,6 +17,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/progress/:jobId" element={<ProgressPage />} />
             <Route path="/result" element={<ResultPage />} />
+            <Route path="/result/:jobId" element={<ResultPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/trends" element={<TrendsPage />} />
             <Route path="/compare" element={<ComparePage />} />

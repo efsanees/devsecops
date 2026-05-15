@@ -26,6 +26,7 @@ export default function Navbar() {
         <nav className="flex items-center gap-1">
           {navLink('/', 'Analiz')}
           {navLink('/history', 'Geçmiş')}
+          {navLink('/trends', 'Trendler')}
         </nav>
       </div>
     </header>

@@ -31,7 +31,8 @@ export default function ProgressPage() {
   const jobDoneRef  = useRef(false);
 
   const goToResult = (repoUrl, result) => {
-    navigate('/result', { state: { type: 'job', data: result, repoUrl } });
+    // URL'de jobId'yi tut → refresh-safe + paylaşılabilir
+    navigate(`/result/${jobId}`, { state: { type: 'job', data: result, repoUrl } });
   };
 
   // Job zaten tamamlanmış olabilir — önce DB'yi kontrol et
