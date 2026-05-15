@@ -17,6 +17,7 @@ import asyncio
 import logging
 
 from app.agents.base import Agent, AgentResult
+from app.scoring.cwe_owasp_mapper import enrich_finding
 from app.security.runners import is_docker_available
 from app.security.runners.trivy_runner import run_trivy
 from app.security.sca_analyzer import analyze_dependencies_from_dir
@@ -88,8 +89,8 @@ class SCAAgent(Agent):
             else:
                 logger.warning("[SCA] Docker mevcut değil, Trivy atlandı")
 
-            # 3. Dedupe
-            all_findings = _dedupe(osv_findings, trivy_findings)
+            # 3. Dedupe, CWE/OWASP zenginleştir
+            all_findings = [enrich_finding(f) for f in _dedupe(osv_findings, trivy_findings)]
             all_findings.sort(key=lambda f: _severity_order(f.get("severity", "LOW")))
 
             severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}

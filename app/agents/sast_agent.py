@@ -17,6 +17,7 @@ import logging
 import shutil
 
 from app.agents.base import Agent, AgentResult
+from app.scoring.cwe_owasp_mapper import enrich_finding
 from app.security.runners import is_docker_available
 from app.security.runners.semgrep_runner import run_semgrep
 from app.security.sast_analyzer import run_bandit_on_dir
@@ -140,8 +141,8 @@ class SASTAgent(Agent):
             else:
                 logger.warning("[SAST] Docker mevcut değil, Semgrep atlandı")
 
-            # 3. Dedupe ve birleştir
-            all_findings = _dedupe(bandit_findings, semgrep_findings)
+            # 3. Dedupe ve birleştir, CWE/OWASP zenginleştir
+            all_findings = [enrich_finding(f) for f in _dedupe(bandit_findings, semgrep_findings)]
 
             severity_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
             for f in all_findings:

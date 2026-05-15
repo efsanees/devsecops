@@ -1,22 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getHistory } from '../api/client.js';
-import SeverityBadge from '../components/SeverityBadge.jsx';
+import { getJobsHistory } from '../api/client.js';
 
-function GradeChip({ grade }) {
-  const colors = {
-    A: 'bg-green-900/50 text-green-300 border-green-700',
-    B: 'bg-blue-900/50 text-blue-300 border-blue-700',
-    C: 'bg-amber-900/50 text-amber-300 border-amber-700',
-    D: 'bg-red-900/50 text-red-300 border-red-700',
-  };
-  if (!grade) return <span className="text-slate-600">—</span>;
-  return (
-    <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold border ${colors[grade] ?? 'bg-slate-700 text-slate-300 border-slate-600'}`}>
-      {grade}
-    </span>
-  );
-}
+const STATUS_COLORS = {
+  completed: 'text-green-400',
+  failed:    'text-red-400',
+  running:   'text-amber-400',
+  pending:   'text-slate-400',
+};
 
 function timeAgo(iso) {
   if (!iso) return '—';
@@ -29,30 +20,67 @@ function timeAgo(iso) {
   return `${Math.floor(h / 24)} gün önce`;
 }
 
+function DsommChip({ score }) {
+  if (score == null) return <span className="text-slate-600">—</span>;
+  const color = score >= 70 ? 'text-green-400' : score >= 40 ? 'text-amber-400' : 'text-red-400';
+  return <span className={`font-semibold ${color}`}>{score.toFixed(1)}</span>;
+}
+
 export default function HistoryPage() {
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [records, setRecords]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+  const [selected, setSelected] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    getHistory(50).then((res) => {
+    getJobsHistory(50).then((res) => {
       setLoading(false);
       if (res.ok) setRecords(res.data);
       else setError(res.error);
     });
   }, []);
 
+  const toggleSelect = (jobId) => {
+    setSelected((prev) => {
+      if (prev.includes(jobId)) return prev.filter((id) => id !== jobId);
+      if (prev.length >= 2) return prev;
+      return [...prev, jobId];
+    });
+  };
+
+  const handleCompare = () => {
+    if (selected.length === 2) {
+      navigate(`/compare?job_a=${selected[0]}&job_b=${selected[1]}`);
+    }
+  };
+
+  const handleTrends = (repoUrl) => {
+    navigate(`/trends?repo_url=${encodeURIComponent(repoUrl)}`);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10">
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-5xl mx-auto px-4 py-10">
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Analiz Geçmişi</h1>
-          <p className="text-slate-400 text-sm mt-1">Son {records.length} analiz kaydı</p>
+          <p className="text-slate-400 text-sm mt-1">
+            Son {records.length} analiz · Karşılaştırmak için 2 satır seçin
+          </p>
         </div>
-        <button className="btn-primary" onClick={() => navigate('/')}>
-          + Yeni Analiz
-        </button>
+        <div className="flex gap-3">
+          {selected.length === 2 && (
+            <button className="btn-primary text-sm" onClick={handleCompare}>
+              🔄 Karşılaştır ({selected.length}/2)
+            </button>
+          )}
+          {selected.length === 1 && (
+            <span className="text-xs text-slate-400 self-center">1 seçildi — 1 tane daha seçin</span>
+          )}
+          <button className="btn-ghost text-sm" onClick={() => navigate('/')}>
+            + Yeni Analiz
+          </button>
+        </div>
       </div>
 
       {loading && (
@@ -62,9 +90,7 @@ export default function HistoryPage() {
       )}
 
       {error && (
-        <div className="card border-red-700 text-red-300 text-sm">
-          ⚠ {error}
-        </div>
+        <div className="card border-red-700 text-red-300 text-sm">⚠ {error}</div>
       )}
 
       {!loading && !error && records.length === 0 && (
@@ -80,52 +106,75 @@ export default function HistoryPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-800 text-slate-400 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3">#</th>
+                <th className="px-3 py-3 w-8"></th>
                 <th className="text-left px-4 py-3">Repo</th>
                 <th className="text-left px-4 py-3">Dil</th>
-                <th className="text-left px-4 py-3">Framework</th>
-                <th className="text-center px-4 py-3">Not</th>
-                <th className="text-center px-4 py-3">Risk</th>
+                <th className="text-center px-4 py-3">DSOMM</th>
+                <th className="text-center px-4 py-3">Bulgular</th>
+                <th className="text-center px-4 py-3">Platform</th>
                 <th className="text-right px-4 py-3">Tarih</th>
+                <th className="px-3 py-3 w-20"></th>
               </tr>
             </thead>
             <tbody>
-              {records.map((r, i) => (
-                <tr
-                  key={r.id}
-                  className={`border-t border-slate-700 hover:bg-slate-800/60 cursor-pointer transition-colors ${
-                    i % 2 === 0 ? 'bg-slate-900/40' : 'bg-slate-800/20'
-                  }`}
-                  onClick={() => navigate('/', {
-                    state: { prefill: r.repo_url }
-                  })}
-                >
-                  <td className="px-4 py-3 text-slate-500">{r.id}</td>
-                  <td className="px-4 py-3 max-w-xs">
-                    <p className="text-white font-medium truncate">
-                      {r.repo_url.replace('https://github.com/', '')}
-                    </p>
-                  </td>
-                  <td className="px-4 py-3 text-slate-300">{r.language ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-300">{r.framework ?? '—'}</td>
-                  <td className="px-4 py-3 text-center">
-                    {r.score !== null && r.score !== undefined ? (
-                      <div className="flex flex-col items-center gap-1">
-                        <GradeChip grade={r.grade} />
-                        <span className="text-xs text-slate-500">{r.score}/100</span>
-                      </div>
-                    ) : <span className="text-slate-600">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {r.risk_level
-                      ? <SeverityBadge severity={r.risk_level} count={r.risk_score} />
-                      : <span className="text-slate-600">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-500 text-xs whitespace-nowrap">
-                    {timeAgo(r.created_at)}
-                  </td>
-                </tr>
-              ))}
+              {records.map((r, i) => {
+                const isSelected = selected.includes(r.job_id);
+                const isDisabled = selected.length === 2 && !isSelected;
+                return (
+                  <tr
+                    key={r.job_id}
+                    className={`border-t border-slate-700 transition-colors ${
+                      isSelected
+                        ? 'bg-blue-900/20 border-l-2 border-l-blue-500'
+                        : i % 2 === 0 ? 'bg-slate-900/30' : 'bg-slate-800/10'
+                    } ${isDisabled ? 'opacity-40' : 'hover:bg-slate-800/50'}`}
+                  >
+                    <td className="px-3 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={isDisabled}
+                        onChange={() => toggleSelect(r.job_id)}
+                        className="w-4 h-4 accent-blue-500 cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-4 py-3 max-w-xs">
+                      <button
+                        onClick={() => handleTrends(r.repo_url)}
+                        className="text-blue-300 hover:text-blue-200 font-medium truncate block max-w-[220px] text-left"
+                        title="Trend grafiğini görüntüle"
+                      >
+                        {r.repo_url.replace('https://github.com/', '')}
+                      </button>
+                      <span className={`text-xs ${STATUS_COLORS[r.status] ?? 'text-slate-500'}`}>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">{r.language ?? '—'}</td>
+                    <td className="px-4 py-3 text-center">
+                      <DsommChip score={r.dsomm_total} />
+                    </td>
+                    <td className="px-4 py-3 text-center text-slate-300">
+                      {r.total_findings ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-center text-slate-400 text-xs">
+                      {r.platform?.replace('_', ' ') ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-500 text-xs whitespace-nowrap">
+                      {timeAgo(r.finished_at ?? r.created_at)}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <button
+                        onClick={() => handleTrends(r.repo_url)}
+                        className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                        title="Trend"
+                      >
+                        📈
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

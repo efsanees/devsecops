@@ -20,21 +20,51 @@ def _build_context(job_result: dict) -> dict:
     pipeline_analysis = job_result.get("pipeline_analysis", {})
     analyzed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
+    sast = findings.get("sast", [])
+    sca  = findings.get("sca", [])
+    secret = findings.get("secret", [])
+    pipeline_findings = findings.get("pipeline", [])
+
+    # Tüm bulgular — OWASP dağılımı için
+    all_findings = [*sast, *sca, *secret]
+    owasp_dist: dict[str, int] = {}
+    for f in all_findings:
+        cat = f.get("owasp_category")
+        if cat:
+            owasp_dist[cat] = owasp_dist.get(cat, 0) + 1
+
+    # Severity sırasına göre top 5 kritik bulgu
+    _sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+    top_critical = sorted(
+        all_findings,
+        key=lambda f: _sev_order.get(f.get("severity", "LOW"), 4),
+    )[:5]
+
     return {
-        "repo_url":          job_result.get("repo_url", "—"),
-        "repo_name":         job_result.get("repo_url", "").replace("https://github.com/", ""),
-        "analyzed_at":       analyzed_at,
-        "platform":          job_result.get("platform", "github_actions"),
-        "elapsed_seconds":   job_result.get("elapsed_seconds"),
-        "profile":           job_result.get("profile", {}),
-        "dsomm":             job_result.get("dsomm", {}),
-        "pipeline_analysis": pipeline_analysis,
-        "sast_findings":     findings.get("sast", []),
-        "sca_findings":      findings.get("sca", []),
-        "secret_findings":   findings.get("secret", []),
-        "pipeline_findings": findings.get("pipeline", []),
-        "llm_summary":       job_result.get("llm_summary", ""),
-        "pipeline_yaml":     job_result.get("pipeline_yaml", ""),
+        "repo_url":           job_result.get("repo_url", "—"),
+        "repo_name":          job_result.get("repo_url", "").replace("https://github.com/", ""),
+        "analyzed_at":        analyzed_at,
+        "platform":           job_result.get("platform", "github_actions"),
+        "elapsed_seconds":    job_result.get("elapsed_seconds"),
+        "profile":            job_result.get("profile", {}),
+        "dsomm":              job_result.get("dsomm", {}),
+        "pipeline_analysis":  pipeline_analysis,
+        "sast_findings":      sast,
+        "sca_findings":       sca,
+        "secret_findings":    secret,
+        "pipeline_findings":  pipeline_findings,
+        "llm_summary":        job_result.get("llm_summary", ""),
+        "pipeline_yaml":      job_result.get("pipeline_yaml", ""),
+        # Akademik rapor için ek alanlar
+        "owasp_distribution": owasp_dist,
+        "top_critical_findings": top_critical,
+        "tool_versions": {
+            "Bandit":  "1.7.x",
+            "Semgrep": "1.x (Docker)",
+            "Trivy":   "0.x (Docker)",
+            "OSV.dev": "API v1",
+            "Gitleaks": "8.x (Docker)",
+        },
     }
 
 

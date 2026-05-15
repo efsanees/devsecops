@@ -40,8 +40,7 @@ app = FastAPI(
     description=(
         "GitHub repolarını analiz eden, güvenlik açıklarını tespit eden ve "
         "projeye özel CI/CD pipeline üreten multi-agent DevSecOps asistanı.\n\n"
-        "**Yeni akış:** `POST /job` → WebSocket `/ws/{job_id}` → `GET /job/{job_id}`\n\n"
-        "**Eski akış (backward compat):** `/full`, `/security`, `/auto`"
+        "**Akış:** `POST /job` → WebSocket `/ws/{job_id}` → `GET /job/{job_id}`"
     ),
     version="1.0.0",
     lifespan=lifespan,

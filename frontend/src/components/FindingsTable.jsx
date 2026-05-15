@@ -7,39 +7,108 @@ const sortBySev = (arr) =>
 
 // ── Satır bileşenleri ────────────────────────────────────────────────────────
 
-function SastRow({ f }) {
+function CweBadge({ cweId }) {
+  if (!cweId) return null;
   return (
-    <tr className="border-b border-slate-700/50 hover:bg-slate-800/40">
-      <td className="py-2.5 px-3 w-24"><SeverityBadge severity={f.severity} /></td>
-      <td className="py-2.5 px-3 text-slate-200 text-sm max-w-[200px]">
-        <p className="truncate">{f.message || f.rule_id}</p>
-        {f.owasp_category && (
-          <p className="text-xs text-violet-400 mt-0.5">{f.owasp_category}</p>
-        )}
-      </td>
-      <td className="py-2.5 px-3 text-slate-400 text-xs font-mono">
-        {f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : '—'}
-      </td>
-      <td className="py-2.5 px-3 text-slate-500 text-xs">{f.source || '—'}</td>
-    </tr>
+    <span className="inline-block text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-mono mr-1">
+      {cweId}
+    </span>
+  );
+}
+
+function OwaspBadge({ category }) {
+  if (!category) return null;
+  return (
+    <span className="inline-block text-xs px-1.5 py-0.5 rounded bg-violet-900/50 text-violet-300 border border-violet-700/40">
+      {category}
+    </span>
+  );
+}
+
+function SastRow({ f }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasFix = !!f.fix_suggestion;
+
+  return (
+    <>
+      <tr className="border-b border-slate-700/50 hover:bg-slate-800/40">
+        <td className="py-2.5 px-3 w-24"><SeverityBadge severity={f.severity} /></td>
+        <td className="py-2.5 px-3 text-slate-200 text-sm max-w-[200px]">
+          <p className="truncate">{f.message || f.rule_id}</p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            <CweBadge cweId={f.cwe_id} />
+            <OwaspBadge category={f.owasp_category} />
+            {hasFix && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300 border border-blue-700/40 hover:bg-blue-800/70 transition-colors"
+              >
+                🤖 {expanded ? 'Kapat' : 'AI Fix'}
+              </button>
+            )}
+          </div>
+        </td>
+        <td className="py-2.5 px-3 text-slate-400 text-xs font-mono">
+          {f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : '—'}
+        </td>
+        <td className="py-2.5 px-3 text-slate-500 text-xs">{f.source || '—'}</td>
+      </tr>
+      {expanded && (
+        <tr className="border-b border-slate-700/50 bg-blue-950/20">
+          <td colSpan={4} className="px-4 py-3">
+            <div className="flex items-start gap-2">
+              <span className="text-blue-400 text-xs font-mono font-semibold shrink-0 mt-0.5">AI ›</span>
+              <p className="text-slate-200 text-sm leading-relaxed">{f.fix_suggestion}</p>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
 function ScaRow({ f }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasFix = !!f.fix_suggestion;
+
   return (
-    <tr className="border-b border-slate-700/50 hover:bg-slate-800/40">
-      <td className="py-2.5 px-3 w-24"><SeverityBadge severity={f.severity} /></td>
-      <td className="py-2.5 px-3 text-slate-200 text-sm">
-        <p className="font-mono text-blue-300">{f.package}<span className="text-slate-500">@{f.version}</span></p>
-        <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[220px]">{f.summary}</p>
-      </td>
-      <td className="py-2.5 px-3 text-slate-400 text-xs font-mono">{f.vuln_id || '—'}</td>
-      <td className="py-2.5 px-3 text-xs">
-        {f.fixed_in && f.fixed_in !== 'bilinmiyor'
-          ? <span className="text-green-400">→ {f.fixed_in}</span>
-          : <span className="text-slate-600">—</span>}
-      </td>
-    </tr>
+    <>
+      <tr className="border-b border-slate-700/50 hover:bg-slate-800/40">
+        <td className="py-2.5 px-3 w-24"><SeverityBadge severity={f.severity} /></td>
+        <td className="py-2.5 px-3 text-slate-200 text-sm">
+          <p className="font-mono text-blue-300">{f.package}<span className="text-slate-500">@{f.version}</span></p>
+          <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[220px]">{f.summary}</p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            <CweBadge cweId={f.cwe_id} />
+            <OwaspBadge category={f.owasp_category} />
+            {hasFix && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300 border border-blue-700/40 hover:bg-blue-800/70 transition-colors"
+              >
+                🤖 {expanded ? 'Kapat' : 'AI Fix'}
+              </button>
+            )}
+          </div>
+        </td>
+        <td className="py-2.5 px-3 text-slate-400 text-xs font-mono">{f.vuln_id || '—'}</td>
+        <td className="py-2.5 px-3 text-xs">
+          {f.fixed_in && f.fixed_in !== 'bilinmiyor'
+            ? <span className="text-green-400">→ {f.fixed_in}</span>
+            : <span className="text-slate-600">—</span>}
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="border-b border-slate-700/50 bg-blue-950/20">
+          <td colSpan={4} className="px-4 py-3">
+            <div className="flex items-start gap-2">
+              <span className="text-blue-400 text-xs font-mono font-semibold shrink-0 mt-0.5">AI ›</span>
+              <p className="text-slate-200 text-sm leading-relaxed">{f.fix_suggestion}</p>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 

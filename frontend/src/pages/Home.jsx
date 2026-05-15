@@ -1,37 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { analyzeRepo, generatePipeline, fullAnalysis, securityAnalysis, startJob } from '../api/client.js';
-
-const MODES = [
-  {
-    id: 'analyze',
-    icon: '🔍',
-    label: 'Hızlı Analiz',
-    desc: 'Dil, framework, test ve Docker tespiti',
-    hasPlatform: false,
-  },
-  {
-    id: 'auto',
-    icon: '⚙️',
-    label: 'Pipeline Üret',
-    desc: 'Repo analizi + CI/CD YAML otomatik üretimi',
-    hasPlatform: true,
-  },
-  {
-    id: 'full',
-    icon: '🤖',
-    label: 'Tam Analiz',
-    desc: 'Multi-agent: SAST + SCA + Secret + Pipeline + DSOMM skoru',
-    hasPlatform: true,
-  },
-  {
-    id: 'security',
-    icon: '🛡️',
-    label: 'Güvenlik Taraması',
-    desc: 'SAST + SCA + CVE tarama + OWASP raporu',
-    hasPlatform: false,
-  },
-];
+import { startJob } from '../api/client.js';
 
 const PLATFORMS = [
   { id: 'github_actions', label: 'GitHub Actions', icon: '🐙' },
@@ -45,12 +14,9 @@ export default function Home() {
   const [token, setToken]         = useState('');
   const [showToken, setShowToken] = useState(false);
   const [tokenOpen, setTokenOpen] = useState(false);
-  const [mode, setMode]           = useState('full');
   const [platform, setPlatform]   = useState('github_actions');
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
-
-  const selectedMode = MODES.find((m) => m.id === mode);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -58,30 +24,15 @@ export default function Home() {
     setError('');
     setLoading(true);
 
-    let result;
-    const url = repoUrl.trim();
-    const tok  = token.trim();
-
-    if (mode === 'analyze')   result = await analyzeRepo(url, tok);
-    else if (mode === 'auto') result = await generatePipeline(url, tok, platform);
-    else if (mode === 'full') result = await startJob(url, tok, platform);
-    else                      result = await securityAnalysis(url, tok);
-
+    const result = await startJob(repoUrl.trim(), token.trim(), platform);
     setLoading(false);
+
     if (!result.ok) {
       setError(result.error);
       return;
     }
 
-    // Tam Analiz → progress sayfasına yönlendir (job-based)
-    if (mode === 'full') {
-      navigate(`/progress/${result.data.job_id}`);
-      return;
-    }
-
-    navigate('/result', {
-      state: { type: mode, data: result.data, repoUrl: url, platform },
-    });
+    navigate(`/progress/${result.data.job_id}`);
   };
 
   return (
@@ -91,7 +42,7 @@ export default function Home() {
         <div className="text-6xl mb-4">🛡️</div>
         <h1 className="text-3xl font-bold text-white mb-3">DevSecOps AI</h1>
         <p className="text-slate-400 text-lg">
-          GitHub reponuzu analiz edin, CI/CD pipeline üretin, güvenlik zaafiyetlerini tespit edin.
+          GitHub reponuzu analiz edin, güvenlik açıklarını tespit edin, DSOMM olgunluk skoru alın.
         </p>
       </div>
 
@@ -143,52 +94,27 @@ export default function Home() {
           )}
         </div>
 
-        {/* Mod seçimi */}
+        {/* Platform seçimi */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-3">Analiz Modu</label>
-          <div className="grid grid-cols-2 gap-3">
-            {MODES.map((m) => (
+          <label className="block text-sm font-medium text-slate-300 mb-3">CI/CD Platformu</label>
+          <div className="flex gap-3">
+            {PLATFORMS.map((p) => (
               <button
-                key={m.id}
+                key={p.id}
                 type="button"
-                onClick={() => setMode(m.id)}
-                className={`text-left p-4 rounded-xl border transition-all ${
-                  mode === m.id
-                    ? 'bg-blue-900/40 border-blue-500 text-white'
+                onClick={() => setPlatform(p.id)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-all ${
+                  platform === p.id
+                    ? 'bg-violet-900/40 border-violet-500 text-white'
                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
                 }`}
               >
-                <div className="text-xl mb-1">{m.icon}</div>
-                <div className="font-semibold text-sm">{m.label}</div>
-                <div className="text-xs mt-0.5 opacity-70">{m.desc}</div>
+                <span>{p.icon}</span>
+                <span>{p.label}</span>
               </button>
             ))}
           </div>
         </div>
-
-        {/* Platform seçimi — yalnızca pipeline modlarında */}
-        {selectedMode?.hasPlatform && (
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-3">CI/CD Platformu</label>
-            <div className="flex gap-3">
-              {PLATFORMS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setPlatform(p.id)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-all ${
-                    platform === p.id
-                      ? 'bg-violet-900/40 border-violet-500 text-white'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
-                  }`}
-                >
-                  <span>{p.icon}</span>
-                  <span>{p.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Hata */}
         {error && (
@@ -207,17 +133,12 @@ export default function Home() {
           {loading ? (
             <>
               <span className="animate-spin">⟳</span>
-              <span>
-                {mode === 'security' ? 'Güvenlik taranıyor...' :
-                 mode === 'full'     ? 'Analiz başlatılıyor...' :
-                 mode === 'auto'     ? 'Pipeline üretiliyor...' :
-                                      'Analiz ediliyor...'}
-              </span>
+              <span>Analiz başlatılıyor...</span>
             </>
           ) : (
             <>
-              <span>{selectedMode?.icon}</span>
-              <span>{selectedMode?.label} Başlat</span>
+              <span>🤖</span>
+              <span>Tam Analiz Başlat</span>
             </>
           )}
         </button>

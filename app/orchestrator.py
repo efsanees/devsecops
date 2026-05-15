@@ -39,6 +39,7 @@ from groq import Groq
 from app.agents.base import AgentResult
 from app.agents.pipeline_analyzer import PipelineAnalyzerAgent
 from app.agents.project_profiler import ProjectProfilerAgent
+from app.agents.remediation_agent import run_remediation
 from app.agents.sast_agent import SASTAgent
 from app.agents.sca_agent import SCAAgent
 from app.agents.secret_agent import SecretAgent
@@ -250,6 +251,10 @@ class Orchestrator:
             # ── ADIM 5: LLM Reasoner ──────────────────────────────────────
             await _emit(job_id, "job_status", message="Bulgular yorumlanıyor")
             llm_summary = await _run_llm_reasoner(profile, all_findings)
+
+            # ── ADIM 5b: Remediation önerileri ───────────────────────────
+            await _emit(job_id, "job_status", message="AI düzeltme önerileri üretiliyor")
+            await run_remediation(sast_r.findings, sca_r.findings, profile)
 
             # ── ADIM 6: Pipeline Generator ────────────────────────────────
             await _emit(job_id, "job_status", message="Pipeline YAML üretiliyor")

@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = "sqlite:///./devsecops.db"
+DATABASE_URL = "sqlite:////app/data/devsecops.db"
 
 engine = create_engine(
     DATABASE_URL,
@@ -32,6 +32,6 @@ def get_db():
 def init_db() -> None:
     """Create all tables. Called once at application startup."""
     # Import models so their Table metadata is registered on Base before create_all
-    from app.models import analysis, pipeline, job  # noqa: F401
+    from app.models import job  # noqa: F401
     Base.metadata.create_all(bind=engine)
     logger.info("Veritabanı tabloları hazır")

@@ -121,6 +121,10 @@ def _normalize(vuln: dict, result: dict) -> dict:
     # Trivy'nin severity değerleri zaten CRITICAL/HIGH/MEDIUM/LOW
     severity = vuln.get("Severity", "MEDIUM").upper()
 
+    # Trivy CweIDs alanı: ["CWE-89", ...] formatında gelebilir
+    cwe_ids = vuln.get("CweIDs") or []
+    cwe_id = cwe_ids[0] if cwe_ids else None
+
     return {
         "source": "trivy",
         "type": "SCA",
@@ -133,4 +137,5 @@ def _normalize(vuln: dict, result: dict) -> dict:
         "summary": vuln.get("Title") or vuln.get("Description", "")[:200],
         "ecosystem": result.get("Type", ""),
         "aliases": [],
+        "cwe_id": cwe_id,
     }

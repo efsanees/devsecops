@@ -85,6 +85,12 @@ def _normalize(raw: dict) -> dict:
     else:
         owasp = str(owasp_raw)
 
+    # CWE metadata — "CWE-89" veya ["CWE-89", ...] formatında gelebilir
+    cwe_raw = meta.get("cwe") or meta.get("cwe2022-top25") or meta.get("cwe2021-top25") or None
+    if isinstance(cwe_raw, list):
+        cwe_raw = cwe_raw[0] if cwe_raw else None
+    metadata_cwe = str(cwe_raw).strip() if cwe_raw else None
+
     return {
         "source": "semgrep",
         "type": "SAST",
@@ -94,5 +100,6 @@ def _normalize(raw: dict) -> dict:
         "line": raw.get("start", {}).get("line"),
         "message": extra.get("message", ""),
         "owasp_category": owasp or None,
+        "metadata_cwe": metadata_cwe,
         "fix": extra.get("fix") or None,
     }

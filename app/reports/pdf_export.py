@@ -24,16 +24,15 @@ logger = logging.getLogger(__name__)
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
-def _render_html(job_result: dict) -> str:
+def _render_html(job_result: dict, template_name: str = "academic_report.html.j2") -> str:
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),
         autoescape=True,
         trim_blocks=True,
         lstrip_blocks=True,
     )
-    # HTML şablonunda dsomm.categories.get() kullanıyoruz — dict metoduna izin ver
     env.policies["json.dumps_kwargs"] = {"ensure_ascii": False}
-    template = env.get_template("report.html.j2")
+    template = env.get_template(template_name)
     ctx = _build_context(job_result)
     return template.render(**ctx)
 

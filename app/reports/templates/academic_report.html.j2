@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>DevSecOps AI — Akademik Güvenlik Raporu — {{ repo_name }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, "Times New Roman", serif; font-size: 12px; color: #111; background: #fff; line-height: 1.6; }
+
+  /* ── Sayfa düzeni ── */
+  @page { size: A4; margin: 2cm 2cm 2.5cm 2.5cm; }
+  .page-break { page-break-before: always; }
+
+  /* ── Tipografi ── */
+  h1 { font-size: 28px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+  h2 { font-size: 17px; font-weight: 700; color: #16213e; margin: 0 0 10px; padding: 6px 0 6px 10px; border-left: 4px solid #4f46e5; }
+  h3 { font-size: 13px; font-weight: 600; color: #374151; margin: 14px 0 6px; }
+  p  { margin-bottom: 8px; }
+  ul { padding-left: 18px; margin-bottom: 8px; }
+  li { margin-bottom: 3px; }
+
+  /* ── Bölümler ── */
+  .section { margin-bottom: 32px; }
+
+  /* ── Kapak ── */
+  .cover { padding: 60px 0 40px; text-align: center; min-height: 90vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .cover-tag { display: inline-block; background: #4f46e5; color: #fff; font-size: 11px; font-family: Arial, sans-serif; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 6px 18px; border-radius: 4px; margin-bottom: 28px; }
+  .cover-title { font-size: 30px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; max-width: 500px; }
+  .cover-sub { font-size: 15px; color: #4b5563; margin-bottom: 40px; }
+  .cover-meta { text-align: left; max-width: 420px; border-top: 1px solid #e5e7eb; padding-top: 20px; width: 100%; }
+  .cover-meta-row { display: flex; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+  .cover-meta-label { color: #6b7280; min-width: 120px; font-weight: 600; }
+  .cover-meta-value { color: #111; }
+
+  /* ── Özet kutusu ── */
+  .summary-box { background: #f8f9fc; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; }
+  .score-pill { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+  .level-olgun     { background: #d1fae5; color: #065f46; }
+  .level-gelisen   { background: #fef3c7; color: #92400e; }
+  .level-baslangic { background: #fee2e2; color: #991b1b; }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .stat-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 14px; text-align: center; }
+  .stat-card-value { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+  .stat-card-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  /* ── Tablolar ── */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 11px; font-family: Arial, sans-serif; }
+  th { background: #f3f4f6; text-align: left; padding: 6px 8px; font-weight: 600; border-bottom: 2px solid #e5e7eb; color: #374151; }
+  td { padding: 5px 8px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .mono { font-family: "Courier New", monospace; font-size: 10px; }
+
+  /* ── Severity rozetleri ── */
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 10px; font-family: Arial, sans-serif; }
+  .CRITICAL { background: #7f1d1d; color: #fecaca; }
+  .HIGH     { background: #7c2d12; color: #fed7aa; }
+  .MEDIUM   { background: #78350f; color: #fde68a; }
+  .LOW      { background: #1e3a5f; color: #bfdbfe; }
+
+  /* ── Bar grafikler ── */
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 11px; font-family: Arial, sans-serif; }
+  .bar-label { min-width: 160px; color: #374151; }
+  .bar-track { flex: 1; background: #e5e7eb; border-radius: 3px; height: 10px; }
+  .bar-fill  { height: 10px; border-radius: 3px; }
+  .bar-count { min-width: 24px; text-align: right; color: #374151; font-weight: 600; }
+  .bar-green { background: #10b981; }
+  .bar-amber { background: #f59e0b; }
+  .bar-red   { background: #ef4444; }
+  .bar-violet { background: #7c3aed; }
+
+  /* ── Öneriler ── */
+  .action-item { padding: 10px 14px; border-left: 3px solid #ef4444; margin-bottom: 8px; background: #fff5f5; border-radius: 0 4px 4px 0; }
+  .action-item.medium { border-color: #f59e0b; background: #fffbeb; }
+  .action-item.low    { border-color: #3b82f6; background: #eff6ff; }
+
+  /* ── Metodoloji tablo ── */
+  .method-table td:first-child { font-weight: 600; min-width: 120px; color: #1a1a2e; }
+  .method-table td:nth-child(2) { color: #4b5563; }
+  .method-table td:nth-child(3) { font-style: italic; color: #6b7280; }
+
+  /* ── Temiz mesaj ── */
+  .clean-msg { color: #059669; font-style: italic; padding: 8px 0; }
+
+  /* ── Footer ── */
+  .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #9ca3af; font-family: Arial, sans-serif; text-align: center; }
+</style>
+</head>
+<body>
+
+{# ================================================================ #}
+{# BÖLÜM 1: KAPAK                                                    #}
+{# ================================================================ #}
+<div class="cover">
+  <div class="cover-tag">DevSecOps AI</div>
+  <div class="cover-title">Otomatik Güvenlik Olgunluk Raporu</div>
+  <div class="cover-sub">{{ repo_name }}</div>
+
+  <div class="cover-meta">
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Repo</span>
+      <span class="cover-meta-value" style="word-break:break-all">{{ repo_url }}</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Analiz Tarihi</span>
+      <span class="cover-meta-value">{{ analyzed_at }}</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">CI/CD Platformu</span>
+      <span class="cover-meta-value">{{ platform | upper | replace("_", " ") }}</span>
+    </div>
+    {% if elapsed_seconds %}
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Analiz Süresi</span>
+      <span class="cover-meta-value">{{ elapsed_seconds }}s</span>
+    </div>
+    {% endif %}
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">DSOMM Skoru</span>
+      <span class="cover-meta-value"><strong>{{ dsomm.total_score | default('—') }}</strong>/100 — {{ dsomm.level | default('—') }}</span>
+    </div>
+  </div>
+</div>
+
+{# ================================================================ #}
+{# BÖLÜM 2: YÖNETİCİ ÖZETİ                                          #}
+{# ================================================================ #}
+<div class="page-break section">
+  <h2>1. Yönetici Özeti</h2>
+
+  {% set level_cls = 'level-olgun' if dsomm.level == 'Olgun' else ('level-gelisen' if dsomm.level == 'Gelişen' else 'level-baslangic') %}
+  <div class="summary-box">
+    <div class="score-pill {{ level_cls }}">
+      DSOMM {{ dsomm.total_score | default('—') }}/100 — {{ dsomm.level | default('—') }}
+    </div>
+    <p>Bu rapor, <strong>{{ repo_name }}</strong> reposunun DevSecOps olgunluk düzeyini otomatik olarak değerlendirmektedir.
+    5 paralel ajan (Profiler, SAST, SCA, Secret, Pipeline) ile yürütülen analiz,
+    statik kod güvenliği, bağımlılık güvenliği, gizli bilgi sızıntısı ve CI/CD pipeline kalitesini kapsamaktadır.</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="stat-card">
+      <div class="stat-card-value">{{ sast_findings | length }}</div>
+      <div class="stat-card-label">SAST Bulgusu</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value">{{ sca_findings | length }}</div>
+      <div class="stat-card-label">SCA / CVE</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value">{{ secret_findings | length }}</div>
+      <div class="stat-card-label">Gizli Bilgi</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value">{{ (sast_findings | length) + (sca_findings | length) + (secret_findings | length) }}</div>
+      <div class="stat-card-label">Toplam Bulgu</div>
+    </div>
+  </div>
+
+  {% if top_critical_findings %}
+  <h3>En Kritik Bulgular</h3>
+  <table>
+    <tr><th>Severity</th><th>Tür</th><th>Açıklama</th><th>CWE</th><th>OWASP</th></tr>
+    {% for f in top_critical_findings %}
+    <tr>
+      <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+      <td>{{ f.type | default(f._category | upper | default('—')) }}</td>
+      <td>{{ (f.message or f.summary or f.secret_type or f.vuln_id or f.rule_id or '—') | truncate(80) }}</td>
+      <td class="mono">{{ f.cwe_id | default('—') }}</td>
+      <td class="mono">{{ f.owasp_category | default('—') }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if llm_summary %}
+  <h3>AI Risk Değerlendirmesi</h3>
+  <p style="line-height:1.7;color:#374151">{{ llm_summary }}</p>
+  {% endif %}
+</div>
+
+{# ================================================================ #}
+{# BÖLÜM 3: METODOLOJİ                                               #}
+{# ================================================================ #}
+<div class="page-break section">
+  <h2>2. Metodoloji</h2>
+
+  <p>Analiz, birbirine paralel çalışan beş otonom ajan tarafından yürütülmektedir. Her ajan farklı güvenlik boyutlarını kapsamakta ve sonuçlar bir orkestratör tarafından birleştirilmektedir.</p>
+
+  <h3>Kullanılan Araçlar</h3>
+  <table class="method-table">
+    <tr><th>Ajan</th><th>Araç</th><th>Kapsam</th><th>Versiyon</th></tr>
+    <tr>
+      <td>SAST Agent</td>
+      <td>Bandit + Semgrep</td>
+      <td>Python kaynak kodu statik analizi, çok dilli kural taraması</td>
+      <td class="mono">{{ tool_versions.Bandit }} / {{ tool_versions.Semgrep }}</td>
+    </tr>
+    <tr>
+      <td>SCA Agent</td>
+      <td>OSV.dev + Trivy</td>
+      <td>Bağımlılık güvenlik açıkları (CVE), SBOM analizi</td>
+      <td class="mono">{{ tool_versions["OSV.dev"] }} / {{ tool_versions.Trivy }}</td>
+    </tr>
+    <tr>
+      <td>Secret Agent</td>
+      <td>Gitleaks</td>
+      <td>Kaynak kodda hardcoded API anahtarı, parola, token tespiti</td>
+      <td class="mono">{{ tool_versions.Gitleaks }}</td>
+    </tr>
+    <tr>
+      <td>Pipeline Agent</td>
+      <td>Kural Motoru</td>
+      <td>CI/CD pipeline güvenliği, DevSecOps en iyi pratikler</td>
+      <td class="mono">—</td>
+    </tr>
+    <tr>
+      <td>Profiler Agent</td>
+      <td>Heuristik</td>
+      <td>Dil/framework tespiti, proje yapısı analizi</td>
+      <td class="mono">—</td>
+    </tr>
+  </table>
+
+  <h3>Değerlendirme Çerçevesi</h3>
+  <p>Güvenlik olgunluğu <strong>DSOMM (DevSecOps Maturity Model)</strong> çerçevesine göre 5 kategori üzerinden değerlendirilmektedir:</p>
+  <table>
+    <tr><th>Kategori</th><th>Max Puan</th><th>Kapsam</th></tr>
+    <tr><td>Build &amp; Deployment</td><td>30</td><td>CI/CD pipeline kalitesi, otomasyonu ve güvenlik adımları</td></tr>
+    <tr><td>Test &amp; Tarama</td><td>25</td><td>Statik/dinamik analiz, bağımlılık güvenliği</td></tr>
+    <tr><td>Implementation</td><td>25</td><td>Kaynak kod güvenliği, güvenli kodlama pratikleri</td></tr>
+    <tr><td>Bilgi Toplama</td><td>10</td><td>Loglama, izleme, monitoring altyapısı</td></tr>
+    <tr><td>Kültür &amp; Org</td><td>10</td><td>Belgeleme, test kapsamı, Docker kullanımı</td></tr>
+  </table>
+
+  <h3>Referans Standartlar</h3>
+  <ul>
+    <li><strong>OWASP Top 10 (2021)</strong> — Web uygulama güvenlik kategorileri</li>
+    <li><strong>CWE (Common Weakness Enumeration)</strong> — Yazılım zayıflık sınıflandırması</li>
+    <li><strong>CVE (Common Vulnerabilities and Exposures)</strong> — Bilinen güvenlik açıkları</li>
+    <li><strong>DSOMM</strong> — DevSecOps olgunluk modeli</li>
+  </ul>
+</div>
+
+{# ================================================================ #}
+{# BÖLÜM 4: DSOMM SKOR DETAYI                                        #}
+{# ================================================================ #}
+<div class="page-break section">
+  <h2>3. DSOMM Güvenlik Olgunluk Skoru</h2>
+
+  {% set level_cls = 'level-olgun' if dsomm.level == 'Olgun' else ('level-gelisen' if dsomm.level == 'Gelişen' else 'level-baslangic') %}
+  <div class="summary-box">
+    <div class="score-pill {{ level_cls }}">
+      {{ dsomm.total_score | default(0) }}/100 — {{ dsomm.level | default('—') }}
+    </div>
+    {% if dsomm.level == 'Olgun' %}
+    <p>Proje <strong>olgun</strong> DevSecOps pratiklerini benimsemiştir. Güvenlik süreçleri pipeline'a entegre edilmiş ve sürekli iyileştirme kültürü yerleşmiştir.</p>
+    {% elif dsomm.level == 'Gelişen' %}
+    <p>Proje <strong>gelişen</strong> aşamadadır. Temel güvenlik pratikleri uygulanmaktadır, ancak kapsamlı entegrasyon için iyileştirme alanları bulunmaktadır.</p>
+    {% else %}
+    <p>Proje <strong>başlangıç</strong> aşamasındadır. Temel DevSecOps pratiklerinin uygulanması öncelikli olarak ele alınmalıdır.</p>
+    {% endif %}
+  </div>
+
+  <h3>Kategori Bazlı Dağılım</h3>
+  {% set cats = [
+    ('build_deployment', 'Build & Deployment', 30),
+    ('testing', 'Test & Tarama', 25),
+    ('implementation', 'Implementation', 25),
+    ('information_gathering', 'Bilgi Toplama', 10),
+    ('culture_org', 'Kültür & Org', 10),
+  ] %}
+
+  {% for key, label, max in cats %}
+  {% set score = dsomm.categories.get(key, 0) if dsomm.categories else 0 %}
+  {% set pct = ((score / max) * 100) | int %}
+  {% set color = 'bar-green' if pct >= 70 else ('bar-amber' if pct >= 40 else 'bar-red') %}
+  <div class="bar-row">
+    <span class="bar-label">{{ label }}</span>
+    <div class="bar-track">
+      <div class="bar-fill {{ color }}" style="width:{{ pct }}%"></div>
+    </div>
+    <span class="bar-count">{{ score }}/{{ max }}</span>
+  </div>
+  {% endfor %}
+
+  {% if dsomm.checks %}
+  <h3>Kontrol Listesi</h3>
+  <table>
+    <tr><th>Kontrol</th><th>Durum</th></tr>
+    {% for key, val in dsomm.checks.items() %}
+    <tr>
+      <td>{{ key | replace("_", " ") | capitalize }}</td>
+      <td style="color:{{ '#059669' if val else '#dc2626' }}; font-weight:600">{{ '✓ Geçti' if val else '✗ Başarısız' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+</div>
+
+{# ================================================================ #}
+{# BÖLÜM 5: GÜVENLİK BULGULARI                                       #}
+{# ================================================================ #}
+<div class="page-break section">
+  <h2>4. Güvenlik Bulguları</h2>
+
+  {# SAST #}
+  <h3>4.1 SAST — Statik Kod Analizi ({{ sast_findings | length }} bulgu)</h3>
+  {% if sast_findings %}
+  <table>
+    <tr><th>Severity</th><th>Kural</th><th>Mesaj</th><th>Dosya</th><th>CWE</th></tr>
+    {% for f in sast_findings[:40] %}
+    <tr>
+      <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+      <td class="mono">{{ f.rule_id | default('—') }}</td>
+      <td>{{ (f.message or '—') | truncate(60) }}</td>
+      <td class="mono">{{ f.file | default('—') }}{% if f.line %}:{{ f.line }}{% endif %}</td>
+      <td class="mono">{{ f.cwe_id | default('—') }}</td>
+    </tr>
+    {% endfor %}
+    {% if sast_findings | length > 40 %}
+    <tr><td colspan="5" style="color:#6b7280;font-style:italic;text-align:center">
+      ... ve {{ (sast_findings | length) - 40 }} bulgu daha (Ekler'de tam liste)
+    </td></tr>
+    {% endif %}
+  </table>
+  {% else %}
+  <p class="clean-msg">✓ SAST bulgusu yok.</p>
+  {% endif %}
+
+  {# SCA #}
+  <h3>4.2 SCA — Bağımlılık Güvenliği ({{ sca_findings | length }} CVE)</h3>
+  {% if sca_findings %}
+  <table>
+    <tr><th>Severity</th><th>Paket</th><th>Versiyon</th><th>CVE</th><th>CVSS</th><th>Düzeltme</th></tr>
+    {% for f in sca_findings[:30] %}
+    <tr>
+      <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+      <td class="mono">{{ f.package | default('—') }}</td>
+      <td class="mono">{{ f.version | default('—') }}</td>
+      <td class="mono">{{ f.vuln_id | default('—') }}</td>
+      <td style="color:#d97706">{{ f.cvss_score | default('—') }}</td>
+      <td style="color:#059669" class="mono">{{ f.fixed_in | default('—') }}</td>
+    </tr>
+    {% endfor %}
+    {% if sca_findings | length > 30 %}
+    <tr><td colspan="6" style="color:#6b7280;font-style:italic;text-align:center">
+      ... ve {{ (sca_findings | length) - 30 }} CVE daha (Ekler'de tam liste)
+    </td></tr>
+    {% endif %}
+  </table>
+  {% else %}
+  <p class="clean-msg">✓ Bilinen güvenlik açığı yok.</p>
+  {% endif %}
+
+  {# Secret #}
+  <h3>4.3 Gizli Bilgi Taraması ({{ secret_findings | length }} bulgu)</h3>
+  {% if secret_findings %}
+  <table>
+    <tr><th>Severity</th><th>Tür</th><th>Dosya</th><th>Maskeli Değer</th></tr>
+    {% for f in secret_findings %}
+    <tr>
+      <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+      <td>{{ f.secret_type | default(f.rule_id) | default('—') }}</td>
+      <td class="mono">{{ f.file | default('—') }}{% if f.line %}:{{ f.line }}{% endif %}</td>
+      <td class="mono" style="color:#d97706">{{ f.redacted_match | default('***') }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="clean-msg">✓ Hardcoded gizli bilgi bulunamadı.</p>
+  {% endif %}
+
+  {# Pipeline #}
+  <h3>4.4 Pipeline Analizi</h3>
+  {% if pipeline_analysis and pipeline_analysis.has_pipeline %}
+    {% for p in pipeline_analysis.existing_pipelines | default([]) %}
+    <p><strong>{{ p.path }}</strong> — Platform: {{ p.platform | default('—') }}, Kapsam: {{ p.coverage_score | default('—') }}/100</p>
+    {% endfor %}
+    {% if pipeline_analysis.missing_steps %}
+    <p style="color:#b45309"><strong>Eksik güvenlik adımları:</strong> {{ pipeline_analysis.missing_steps | join(', ') }}</p>
+    {% endif %}
+  {% else %}
+    <p class="clean-msg">CI/CD pipeline bulunamadı veya analiz yapılamadı.</p>
+  {% endif %}
+</div>
+
+{# ================================================================ #}
+{# BÖLÜM 6: OWASP / CWE HARİTALAMA                                  #}
+{# ================================================================ #}
+<div class="page-break section">
+  <h2>5. OWASP Top 10 / CWE Haritalama</h2>
+
+  <p>Tespit edilen güvenlik bulguları, OWASP Top 10 (2021) kategorileri ve CWE (Common Weakness Enumeration) standartlarıyla ilişkilendirilmiştir.</p>
+
+  {% set owasp_order = [
+    ('A01:2021', 'A01 Broken Access Control'),
+    ('A02:2021', 'A02 Cryptographic Failures'),
+    ('A03:2021', 'A03 Injection'),
+    ('A04:2021', 'A04 Insecure Design'),
+    ('A05:2021', 'A05 Security Misconfiguration'),
+    ('A06:2021', 'A06 Vulnerable Components'),
+    ('A07:2021', 'A07 Auth Failures'),
+    ('A08:2021', 'A08 Software & Data Integrity'),
+    ('A09:2021', 'A09 Logging & Monitoring'),
+    ('A10:2021', 'A10 SSRF'),
+  ] %}
+
+  {% set max_count = owasp_distribution.values() | max | default(1) if owasp_distribution else 1 %}
+
+  {% if owasp_distribution %}
+  <h3>Kategori Dağılımı</h3>
+  {% for key, label in owasp_order %}
+  {% set count = owasp_distribution.get(key, 0) %}
+  {% if count > 0 %}
+  {% set pct = ((count / max_count) * 100) | int %}
+  <div class="bar-row">
+    <span class="bar-label" style="font-size:11px">{{ label }}</span>
+    <div class="bar-track">
+      <div class="bar-fill bar-violet" style="width:{{ pct }}%"></div>
+    </div>
+    <span class="bar-count">{{ count }}</span>
+  </div>
+  {% endif %}
+  {% endfor %}
+  {% else %}
+  <p style="color:#6b7280;font-style:italic">CWE/OWASP bilgisi olan bulgu yok.</p>
+  {% endif %}
+
+  <h3>CWE Detayı</h3>
+  {% set all_cwe_findings = sast_findings + sca_findings %}
+  {% set has_cwe = all_cwe_findings | selectattr('cwe_id') | list %}
+  {% if has_cwe %}
+  <table>
+    <tr><th>CWE</th><th>OWASP</th><th>Severity</th><th>Açıklama</th></tr>
+    {% for f in has_cwe[:30] %}
+    <tr>
+      <td class="mono">{{ f.cwe_id }}</td>
+      <td class="mono">{{ f.owasp_category | default('—') }}</td>
+      <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+      <td>{{ (f.message or f.summary or f.rule_id or '—') | truncate(70) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p style="color:#6b7280;font-style:italic">CWE eşleşmesi bulunamadı.</p>
+  {% endif %}
+</div>
+
+{# ================================================================ #}
+{# BÖLÜM 7: ÖNERİLER / AKSİYON PLANI                                #}
+{# ================================================================ #}
+<div class="page-break section">
+  <h2>6. Öneriler ve Aksiyon Planı</h2>
+
+  <p>Aşağıdaki önlemler, tespit edilen kritik ve yüksek öncelikli bulgulara göre hazırlanmıştır.</p>
+
+  {% set critical_sast = sast_findings | selectattr('severity', 'in', ['CRITICAL', 'HIGH']) | list %}
+  {% set critical_sca  = sca_findings  | selectattr('severity', 'in', ['CRITICAL', 'HIGH']) | list %}
+
+  {% if critical_sast %}
+  <h3>SAST — Acil Düzeltmeler</h3>
+  {% for f in critical_sast[:10] %}
+  <div class="action-item">
+    <strong>{{ f.rule_id | default('—') }}</strong>
+    {% if f.cwe_id %} <span style="color:#6b7280">({{ f.cwe_id }})</span>{% endif %} —
+    {{ (f.message or '—') | truncate(100) }}<br>
+    <span style="font-size:10px;color:#6b7280">
+      Dosya: {{ f.file | default('—') }}{% if f.line %}:{{ f.line }}{% endif %}
+      {% if f.fix %} | Öneri: {{ f.fix | truncate(80) }}{% endif %}
+    </span>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if critical_sca %}
+  <h3>SCA — Yükseltilmesi Gereken Bağımlılıklar</h3>
+  {% for f in critical_sca[:10] %}
+  <div class="action-item">
+    <strong>{{ f.package | default('—') }} {{ f.version | default('') }}</strong>
+    {% if f.cvss_score %} CVSS {{ f.cvss_score }}{% endif %} —
+    {{ f.vuln_id | default('—') }}: {{ (f.summary or '—') | truncate(80) }}<br>
+    {% if f.fixed_in and f.fixed_in != 'bilinmiyor' %}
+    <span style="font-size:10px;color:#059669">✓ Düzeltme: {{ f.fixed_in }}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if secret_findings %}
+  <h3>Gizli Bilgi — Hemen Geçersiz Kılın</h3>
+  {% for f in secret_findings[:5] %}
+  <div class="action-item">
+    <strong>{{ f.secret_type | default(f.rule_id) | default('—') }}</strong> —
+    {{ f.file | default('—') }}{% if f.line %}:{{ f.line }}{% endif %}<br>
+    <span style="font-size:10px;color:#6b7280">Tespit edilen değeri hemen iptal edin ve güvenli depolamaya (vault/secret manager) geçin.</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if not critical_sast and not critical_sca and not secret_findings %}
+  <p style="color:#059669">✓ Kritik veya yüksek öncelikli bulgu yok. Mevcut güvenlik pratiklerini sürdürün.</p>
+  {% endif %}
+
+  <h3>Genel DevSecOps Önerileri</h3>
+  <ul>
+    <li>Tüm bağımlılıkları düzenli olarak güncellemeye devam edin (Dependabot / Renovate gibi otomatik araçlarla).</li>
+    <li>SAST taramasını CI/CD pipeline'ına entegre edin; her PR'da otomatik çalışsın.</li>
+    <li>Gizli değerler için HashiCorp Vault, AWS Secrets Manager veya GitHub Encrypted Secrets kullanın.</li>
+    <li>Container image'larını Trivy ile düzenli tarayın.</li>
+    <li>Güvenlik açıklarını takip etmek için SBOM (Software Bill of Materials) üretin.</li>
+  </ul>
+</div>
+
+{# ================================================================ #}
+{# BÖLÜM 8: EKLER                                                     #}
+{# ================================================================ #}
+<div class="page-break section">
+  <h2>7. Ekler</h2>
+
+  <h3>A. Araç Versiyonları</h3>
+  <table>
+    <tr><th>Araç</th><th>Versiyon</th><th>Lisans</th></tr>
+    <tr><td>Bandit</td><td class="mono">{{ tool_versions.Bandit }}</td><td>Apache 2.0</td></tr>
+    <tr><td>Semgrep</td><td class="mono">{{ tool_versions.Semgrep }}</td><td>LGPL 2.1</td></tr>
+    <tr><td>OSV.dev</td><td class="mono">{{ tool_versions["OSV.dev"] }}</td><td>Open Source</td></tr>
+    <tr><td>Trivy</td><td class="mono">{{ tool_versions.Trivy }}</td><td>Apache 2.0</td></tr>
+    <tr><td>Gitleaks</td><td class="mono">{{ tool_versions.Gitleaks }}</td><td>MIT</td></tr>
+  </table>
+
+  {% if sca_findings %}
+  <h3>B. Tam CVE Listesi ({{ sca_findings | length }} kayıt)</h3>
+  <table>
+    <tr><th>CVE</th><th>Paket</th><th>Versiyon</th><th>Severity</th><th>CVSS</th><th>Düzeltme</th></tr>
+    {% for f in sca_findings %}
+    <tr>
+      <td class="mono">{{ f.vuln_id | default('—') }}</td>
+      <td class="mono">{{ f.package | default('—') }}</td>
+      <td class="mono">{{ f.version | default('—') }}</td>
+      <td><span class="badge {{ f.severity }}">{{ f.severity }}</span></td>
+      <td>{{ f.cvss_score | default('—') }}</td>
+      <td class="mono" style="color:#059669">{{ f.fixed_in | default('—') }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if pipeline_yaml %}
+  <h3>C. Önerilen CI/CD Pipeline ({{ platform | upper | replace("_"," ") }})</h3>
+  <pre style="font-size:9px;line-height:1.5">{{ pipeline_yaml | truncate(3000) }}</pre>
+  {% endif %}
+</div>
+
+<div class="footer">
+  Bu rapor <strong>DevSecOps AI</strong> tarafından {{ analyzed_at }} tarihinde otomatik olarak üretilmiştir. &nbsp;|&nbsp;
+  DSOMM çerçevesi · OWASP Top 10 2021 · CWE standardına göre değerlendirilmiştir.
+</div>
+
+</body>
+</html>

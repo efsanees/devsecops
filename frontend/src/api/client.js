@@ -13,66 +13,6 @@ function extractError(err) {
   return err?.message ?? 'Bilinmeyen hata';
 }
 
-// Repo bilgilerini analiz et (dil, framework, test, docker)
-export async function analyzeRepo(repoUrl, token = '') {
-  try {
-    const { data } = await http.post('/analyze', { repo_url: repoUrl, token });
-    return { ok: true, data };
-  } catch (err) {
-    return { ok: false, error: extractError(err) };
-  }
-}
-
-// Pipeline üret + kaydet
-export async function generatePipeline(repoUrl, token = '', platform = 'github_actions') {
-  try {
-    const { data } = await http.post('/auto', { repo_url: repoUrl, token, platform });
-    return { ok: true, data };
-  } catch (err) {
-    return { ok: false, error: extractError(err) };
-  }
-}
-
-// Tam analiz: kod + pipeline + uyum skoru
-export async function fullAnalysis(repoUrl, token = '', platform = 'github_actions') {
-  try {
-    const { data } = await http.post('/full', { repo_url: repoUrl, token, platform });
-    return { ok: true, data };
-  } catch (err) {
-    return { ok: false, error: extractError(err) };
-  }
-}
-
-// Güvenlik analizi: SAST + SCA + risk raporu
-export async function securityAnalysis(repoUrl, token = '') {
-  try {
-    const { data } = await http.post('/security', { repo_url: repoUrl, token });
-    return { ok: true, data };
-  } catch (err) {
-    return { ok: false, error: extractError(err) };
-  }
-}
-
-// Geçmiş analizler
-export async function getHistory(limit = 30) {
-  try {
-    const { data } = await http.get('/history', { params: { limit } });
-    return { ok: true, data };
-  } catch (err) {
-    return { ok: false, error: extractError(err) };
-  }
-}
-
-// Tek analiz detayı
-export async function getHistoryDetail(id) {
-  try {
-    const { data } = await http.get(`/history/${id}`);
-    return { ok: true, data };
-  } catch (err) {
-    return { ok: false, error: extractError(err) };
-  }
-}
-
 // ── Multi-agent job API ───────────────────────────────────────────────────────
 
 // Orchestrator'ı başlatır, anında job_id döner
@@ -99,6 +39,36 @@ export async function getJob(jobId) {
 export function getJobYamlUrl(jobId) {
   const base = import.meta.env.VITE_API_URL ?? '/api';
   return `${base}/job/${jobId}/yaml`;
+}
+
+// Son N analiz jobunu döner (History sayfası için)
+export async function getJobsHistory(limit = 30) {
+  try {
+    const { data } = await http.get('/jobs', { params: { limit } });
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, error: extractError(err) };
+  }
+}
+
+// Aynı repo için DSOMM skor değişimini döner
+export async function getTrends(repoUrl) {
+  try {
+    const { data } = await http.get('/trends', { params: { repo_url: repoUrl } });
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, error: extractError(err) };
+  }
+}
+
+// İki job arasındaki bulgu farkını döner
+export async function compareJobs(jobAId, jobBId) {
+  try {
+    const { data } = await http.get('/compare', { params: { job_a: jobAId, job_b: jobBId } });
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, error: extractError(err) };
+  }
 }
 
 // WebSocket bağlantısı kur, event'leri onMessage'a ilet.
