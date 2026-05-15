@@ -40,6 +40,7 @@ from app.agents.base import AgentResult
 from app.agents.pipeline_analyzer import PipelineAnalyzerAgent
 from app.agents.project_profiler import ProjectProfilerAgent
 from app.agents.remediation_agent import run_remediation
+from app.services.fp_filter import filter_false_positives
 from app.agents.sast_agent import SASTAgent
 from app.agents.sca_agent import SCAAgent
 from app.agents.secret_agent import SecretAgent
@@ -255,7 +256,24 @@ class Orchestrator:
                 await _emit(job_id, event_type, agent=name,
                             data=result.data, error=result.error)
 
-            # ── ADIM 4: Tüm bulgular ──────────────────────────────────────
+            # ── ADIM 4: SAST false positive filtresi ─────────────────────
+            await _emit(job_id, "job_status", message="False positive analizi yapılıyor")
+            genuine_sast, fp_sast = await filter_false_positives(sast_r.findings, profile)
+            # Filtrelenen bulgular findings'e katılır ama is_false_positive=True ile işaretli
+            sast_r.findings[:] = genuine_sast + fp_sast
+            fp_count = len(fp_sast)
+
+            # DSOMM için gerçek bulgu sayısını güncelle
+            genuine_high = sum(
+                1 for f in genuine_sast
+                if f.get("severity") in ("HIGH", "CRITICAL")
+            )
+            if fp_count:
+                sast_r.data["fp_filtered_count"] = fp_count
+                sast_r.data["severity_counts"]["HIGH"] = genuine_high
+                logger.info("[Orchestrator] FP filtresi: %d bulgu filtrelendi", fp_count)
+
+            # ── ADIM 4b: Tüm bulgular ─────────────────────────────────────
             all_findings: list[dict] = []
             for r in (sast_r, sca_r, secret_r):
                 all_findings.extend(r.findings)
@@ -307,6 +325,7 @@ class Orchestrator:
                 "llm_summary": llm_summary,
                 "pipeline_yaml": pipeline_yaml,
                 "elapsed_seconds": elapsed,
+                "fp_filtered_count": fp_count,
             }
 
             await asyncio.to_thread(_update_job, "completed", final_result)

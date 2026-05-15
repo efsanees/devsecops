@@ -130,6 +130,37 @@ def get_job_yaml(job_id: str, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/job/{job_id}/report.sarif")
+def get_job_sarif(job_id: str, include_fp: bool = False, db: Session = Depends(get_db)):
+    """
+    SARIF 2.1.0 formatında bulgu raporu.
+    GitHub Code Scanning'e yüklenebilir:
+      gh api /repos/{owner}/{repo}/code-scanning/sarifs \
+        --field commit_sha=HEAD \
+        --field ref=refs/heads/main \
+        --field sarif=@report.sarif.gz
+    """
+    from app.services.sarif_exporter import to_sarif_bytes
+
+    job = db.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Job bulunamadı"})
+    if job.status != "completed" or not job.result:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "Analiz henüz tamamlanmadı"})
+
+    findings = job.result.get("findings", {})
+    all_f = (
+        (findings.get("sast") or [])
+        + (findings.get("sca") or [])
+    )
+    sarif_bytes = to_sarif_bytes(all_f, job.repo_url)
+    return Response(
+        content=sarif_bytes,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=devsecops-{job_id[:8]}.sarif"},
+    )
+
+
 @router.get("/job/{job_id}/report.md")
 def get_job_report_md(job_id: str, db: Session = Depends(get_db)):
     """Job sonucundan Markdown rapor üretir ve indirir."""

@@ -4,7 +4,7 @@ import DsommDashboard from '../components/DsommDashboard.jsx';
 import FindingsTable from '../components/FindingsTable.jsx';
 import OwaspChart from '../components/OwaspChart.jsx';
 import PipelineViewer from '../components/PipelineViewer.jsx';
-import { getJob, getJobYamlUrl, getJobReportMdUrl, getJobReportPdfUrl } from '../api/client.js';
+import { getJob, getJobYamlUrl, getJobReportMdUrl, getJobReportPdfUrl, getJobSarifUrl } from '../api/client.js';
 
 function InfoChip({ label, value, ok }) {
   const color = ok === true ? 'text-green-400' : ok === false ? 'text-red-400' : 'text-slate-300';
@@ -51,11 +51,29 @@ function CopyLinkButton({ jobId }) {
   );
 }
 
+function FpFilterBadge({ count }) {
+  if (!count) return null;
+  return (
+    <div className="flex items-start gap-2 p-3 bg-blue-900/20 border border-blue-700/40 rounded-lg text-xs text-blue-300">
+      <span className="shrink-0 mt-0.5">🤖</span>
+      <span>
+        <strong>LLM False Positive Analizi:</strong> {count} SAST bulgusu
+        false positive olarak filtrelendi (güven eşiği: %65). Gerçek güvenlik
+        sorunları raporda gösterilmektedir.
+      </span>
+    </div>
+  );
+}
+
 function JobResultView({ data, navigate }) {
-  const { profile = {}, dsomm, findings = {}, llm_summary, pipeline_yaml, job_id, elapsed_seconds } = data;
+  const { profile = {}, dsomm, findings = {}, llm_summary, pipeline_yaml, job_id, elapsed_seconds, fp_filtered_count } = data;
+
+  // Filtrelenen FP bulgular findings.sast içinde is_false_positive=true ile işaretli
+  const fpCount = fp_filtered_count
+    ?? (findings.sast || []).filter((f) => f.is_false_positive).length;
 
   const totalFindings =
-    (findings.sast?.length ?? 0) +
+    (findings.sast?.filter(f => !f.is_false_positive)?.length ?? 0) +
     (findings.sca?.length ?? 0) +
     (findings.secret?.length ?? 0);
 
@@ -73,6 +91,8 @@ function JobResultView({ data, navigate }) {
           )}
         </div>
       </Section>
+
+      <FpFilterBadge count={fpCount} />
 
       {dsomm && (
         <Section icon="📊" title="Güvenlik Olgunluk Skoru (DSOMM)">
@@ -124,6 +144,11 @@ function JobResultView({ data, navigate }) {
             <a href={getJobReportPdfUrl(job_id)} target="_blank" rel="noopener noreferrer"
                className="btn-ghost text-sm flex items-center gap-1.5">
               📑 PDF Rapor
+            </a>
+            <a href={getJobSarifUrl(job_id)} download={`devsecops-${job_id.slice(0,8)}.sarif`}
+               className="btn-ghost text-sm flex items-center gap-1.5"
+               title="GitHub Code Scanning'e yüklenebilir">
+              🔬 SARIF İndir
             </a>
           </div>
         </Section>
