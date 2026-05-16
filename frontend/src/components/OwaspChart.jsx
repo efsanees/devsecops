@@ -1,54 +1,14 @@
 const OWASP_META = {
-  'A01:2021': {
-    label: 'A01 Broken Access Control',
-    desc:  'Yetki kontrolü eksiklikleri — kullanıcılar izin verilmeyen kaynaklara erişebiliyor.',
-    color: 'bg-red-600/70',
-  },
-  'A02:2021': {
-    label: 'A02 Cryptographic Failures',
-    desc:  'Zayıf şifreleme algoritmaları (MD5, SHA1), açık metin veri iletimi.',
-    color: 'bg-orange-600/70',
-  },
-  'A03:2021': {
-    label: 'A03 Injection',
-    desc:  'SQL injection, komut enjeksiyonu, XSS — güvenilmeyen veri yorumlanıyor.',
-    color: 'bg-amber-600/70',
-  },
-  'A04:2021': {
-    label: 'A04 Insecure Design',
-    desc:  'Tasarım düzeyinde güvenlik açıkları — tehdit modellemesi yapılmamış.',
-    color: 'bg-yellow-600/70',
-  },
-  'A05:2021': {
-    label: 'A05 Security Misconfiguration',
-    desc:  'Hatalı yapılandırma — debug modu, varsayılan şifreler, geniş izinler.',
-    color: 'bg-lime-600/70',
-  },
-  'A06:2021': {
-    label: 'A06 Vulnerable Components',
-    desc:  'Bilinen CVE\'li eski bağımlılıklar (pip, npm, Maven vb.)',
-    color: 'bg-violet-600/70',
-  },
-  'A07:2021': {
-    label: 'A07 Auth Failures',
-    desc:  'Hardcoded şifre, zayıf kimlik doğrulama, token güvensizliği.',
-    color: 'bg-blue-600/70',
-  },
-  'A08:2021': {
-    label: 'A08 Software & Data Integrity',
-    desc:  'Güvensiz deserializasyon (pickle, marshal), doğrulanmamış paketler.',
-    color: 'bg-indigo-600/70',
-  },
-  'A09:2021': {
-    label: 'A09 Logging & Monitoring',
-    desc:  'Eksik loglama — güvenlik olayları tespit edilemiyor.',
-    color: 'bg-cyan-600/70',
-  },
-  'A10:2021': {
-    label: 'A10 SSRF',
-    desc:  'Sunucu tarafı istek sahteciliği — iç servislere yetkisiz erişim.',
-    color: 'bg-teal-600/70',
-  },
+  'A01:2021': { label: 'A01 Broken Access Control',    desc: 'Yetkisiz kaynak erişimi',              color: 'bg-red-600/70'    },
+  'A02:2021': { label: 'A02 Cryptographic Failures',   desc: 'Zayıf şifreleme (MD5, SHA1...)',        color: 'bg-orange-600/70' },
+  'A03:2021': { label: 'A03 Injection',                desc: 'SQL/komut enjeksiyonu, XSS',            color: 'bg-amber-600/70'  },
+  'A04:2021': { label: 'A04 Insecure Design',          desc: 'Tasarım düzeyinde güvenlik açıkları',   color: 'bg-yellow-600/70' },
+  'A05:2021': { label: 'A05 Security Misconfiguration',desc: 'Hatalı yapılandırma, debug modu',       color: 'bg-lime-600/70'   },
+  'A06:2021': { label: 'A06 Vulnerable Components',    desc: 'CVE\'li eski bağımlılıklar',            color: 'bg-violet-600/70' },
+  'A07:2021': { label: 'A07 Auth Failures',            desc: 'Hardcoded şifre, zayıf kimlik doğrulama', color: 'bg-blue-600/70' },
+  'A08:2021': { label: 'A08 Software & Data Integrity',desc: 'Güvensiz deserializasyon (pickle...)',  color: 'bg-indigo-600/70' },
+  'A09:2021': { label: 'A09 Logging & Monitoring',     desc: 'Eksik loglama, olaylar tespit edilemiyor', color: 'bg-cyan-600/70'},
+  'A10:2021': { label: 'A10 SSRF',                     desc: 'Sunucu tarafı istek sahteciliği',       color: 'bg-teal-600/70'   },
 };
 
 const OWASP_ORDER = Object.keys(OWASP_META);
