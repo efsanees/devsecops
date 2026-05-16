@@ -173,8 +173,26 @@ const TABS = [
   { key: 'pipeline', label: 'Pipeline', icon: '⚙️', desc: 'CI/CD analizi — Mevcut pipeline\'da eksik güvenlik adımları (SAST, SCA, secret scan vb.)' },
 ];
 
+const SEV_FILTERS = ['Tümü', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+const SEV_FILTER_COLOR = {
+  'CRITICAL': 'text-red-400 border-red-700 bg-red-900/20',
+  'HIGH':     'text-orange-400 border-orange-700 bg-orange-900/20',
+  'MEDIUM':   'text-amber-400 border-amber-700 bg-amber-900/20',
+  'LOW':      'text-blue-400 border-blue-700 bg-blue-900/20',
+  'Tümü':     'text-slate-300 border-slate-600 bg-slate-700/40',
+};
+
+function applyFilter(rows, sev) {
+  if (!sev || sev === 'Tümü') return rows;
+  return rows.filter((f) => f.severity === sev);
+}
+
 export default function FindingsTable({ findings = {} }) {
-  const [active, setActive] = useState('sast');
+  const [active, setActive]   = useState('sast');
+  const [sevFilter, setSevFilter] = useState('Tümü');
+
+  // Sekme değişince filtreyi sıfırla
+  const changeTab = (key) => { setActive(key); setSevFilter('Tümü'); };
 
   const counts = {
     sast:     (findings.sast     || []).length,
@@ -185,7 +203,7 @@ export default function FindingsTable({ findings = {} }) {
 
   const renderTab = () => {
     if (active === 'sast') {
-      const rows = sortBySev(findings.sast || []);
+      const rows = applyFilter(sortBySev(findings.sast || []), sevFilter);
       if (!rows.length) return <EmptyState label="SAST" />;
       return (
         <Table headers={['Severity', 'Mesaj', 'Dosya:Satır', 'Kaynak']}>
@@ -194,7 +212,7 @@ export default function FindingsTable({ findings = {} }) {
       );
     }
     if (active === 'sca') {
-      const rows = sortBySev(findings.sca || []);
+      const rows = applyFilter(sortBySev(findings.sca || []), sevFilter);
       if (!rows.length) return <EmptyState label="SCA" />;
       return (
         <Table headers={['Severity', 'Paket', 'CVE ID', 'Düzeltme']}>
@@ -203,7 +221,7 @@ export default function FindingsTable({ findings = {} }) {
       );
     }
     if (active === 'secret') {
-      const rows = sortBySev(findings.secret || []);
+      const rows = applyFilter(sortBySev(findings.secret || []), sevFilter);
       if (!rows.length) return <EmptyState label="Gizli bilgi" />;
       return (
         <Table headers={['Severity', 'Tür', 'Dosya:Satır', 'Maskeli Değer']}>
@@ -212,7 +230,7 @@ export default function FindingsTable({ findings = {} }) {
       );
     }
     if (active === 'pipeline') {
-      const rows = sortBySev(findings.pipeline || []);
+      const rows = applyFilter(sortBySev(findings.pipeline || []), sevFilter);
       if (!rows.length) return <EmptyState label="Pipeline" />;
       return (
         <Table headers={['Severity', 'Sorun', '', 'Öneri']}>
@@ -230,7 +248,7 @@ export default function FindingsTable({ findings = {} }) {
         {TABS.map(({ key, label, icon }) => (
           <button
             key={key}
-            onClick={() => setActive(key)}
+            onClick={() => changeTab(key)}
             className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors -mb-px border-b-2 ${
               active === key
                 ? 'border-blue-500 text-blue-400'
@@ -250,14 +268,36 @@ export default function FindingsTable({ findings = {} }) {
         ))}
       </div>
 
-      {/* Aktif sekmenin açıklaması */}
-      {TABS.find((t) => t.key === active)?.desc && (
-        <p className="text-[11px] text-slate-600 mb-3 mt-2">
-          {TABS.find((t) => t.key === active).desc}
-        </p>
-      )}
+      {/* Açıklama + severity filtresi */}
+      <div className="flex items-center justify-between gap-2 mt-2 mb-3">
+        {TABS.find((t) => t.key === active)?.desc && (
+          <p className="text-[11px] text-slate-600 flex-1">
+            {TABS.find((t) => t.key === active).desc}
+          </p>
+        )}
+        {active !== 'pipeline' && (
+          <div className="flex gap-1 shrink-0">
+            {SEV_FILTERS.map((s) => (
+              <button
+                key={s}
+                onClick={() => setSevFilter(s)}
+                className={`text-[10px] px-2 py-0.5 rounded border font-medium transition-colors ${
+                  sevFilter === s
+                    ? SEV_FILTER_COLOR[s]
+                    : 'text-slate-600 border-slate-700 hover:text-slate-400'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {renderTab()}
+      {/* Sabit yükseklik scrollable alan */}
+      <div className="overflow-y-auto" style={{ maxHeight: '420px' }}>
+        {renderTab()}
+      </div>
     </div>
   );
 }

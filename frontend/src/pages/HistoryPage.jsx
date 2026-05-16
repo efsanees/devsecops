@@ -31,6 +31,7 @@ export default function HistoryPage() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
   const [selected, setSelected] = useState([]);
+  const [search, setSearch]     = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -61,11 +62,11 @@ export default function HistoryPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Analiz Geçmişi</h1>
           <p className="text-slate-400 text-sm mt-1">
-            Son {records.length} analiz · Karşılaştırmak için 2 satır seçin
+            {records.length} analiz · Karşılaştırmak için 2 satır seçin
           </p>
         </div>
         <div className="flex gap-3">
@@ -82,6 +83,19 @@ export default function HistoryPage() {
           </button>
         </div>
       </div>
+
+      {/* Arama kutusu */}
+      {records.length > 0 && (
+        <div className="mb-4">
+          <input
+            type="text"
+            className="input text-sm"
+            placeholder="Repo adına göre ara..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      )}
 
       {loading && (
         <div className="flex justify-center py-20">
@@ -117,7 +131,9 @@ export default function HistoryPage() {
               </tr>
             </thead>
             <tbody>
-              {records.map((r, i) => {
+              {records.filter((r) =>
+                !search.trim() || r.repo_url.toLowerCase().includes(search.trim().toLowerCase())
+              ).map((r, i) => {
                 const isSelected = selected.includes(r.job_id);
                 const isDisabled = selected.length === 2 && !isSelected;
                 return (

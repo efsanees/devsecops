@@ -8,6 +8,12 @@ const PLATFORMS = [
   { id: 'jenkins',        label: 'Jenkins',         icon: '☕' },
 ];
 
+const EXAMPLE_REPOS = [
+  { label: 'OWASP/NodeGoat',  url: 'https://github.com/OWASP/NodeGoat',  desc: 'Kasıtlı zafiyetli Node.js' },
+  { label: 'pallets/flask',   url: 'https://github.com/pallets/flask',   desc: 'Temiz Python projesi' },
+  { label: 'OWASP/WebGoat',   url: 'https://github.com/WebGoat/WebGoat', desc: 'Zafiyetli Java uygulaması' },
+];
+
 // PR Review için GitHub Actions workflow YAML içeriği
 const PR_REVIEW_WORKFLOW = `name: DevSecOps Code Review
 
@@ -126,6 +132,21 @@ function AnalysisTab() {
           required
           autoFocus
         />
+        {/* Örnek repolar */}
+        <div className="flex gap-2 mt-2 flex-wrap">
+          <span className="text-[11px] text-slate-600 self-center">Örnek:</span>
+          {EXAMPLE_REPOS.map((r) => (
+            <button
+              key={r.url}
+              type="button"
+              onClick={() => setRepoUrl(r.url)}
+              title={r.desc}
+              className="text-[11px] px-2 py-0.5 rounded border border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors"
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Token (opsiyonel) */}

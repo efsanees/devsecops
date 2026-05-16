@@ -54,6 +54,45 @@ function CopyLinkButton({ jobId }) {
   );
 }
 
+function SeverityChips({ findings }) {
+  const all = [
+    ...(findings.sast   || []),
+    ...(findings.sca    || []),
+    ...(findings.secret || []),
+  ];
+  const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  all.forEach((f) => { const s = f.severity?.toUpperCase(); if (counts[s] !== undefined) counts[s]++; });
+
+  const chips = [
+    { label: 'CRITICAL', count: counts.CRITICAL, cls: 'bg-red-900/40 text-red-300 border-red-700' },
+    { label: 'HIGH',     count: counts.HIGH,     cls: 'bg-orange-900/40 text-orange-300 border-orange-700' },
+    { label: 'MEDIUM',   count: counts.MEDIUM,   cls: 'bg-amber-900/40 text-amber-300 border-amber-700' },
+    { label: 'LOW',      count: counts.LOW,       cls: 'bg-blue-900/40 text-blue-300 border-blue-700' },
+  ].filter((c) => c.count > 0);
+
+  if (!chips.length) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 mb-2">
+      {chips.map(({ label, count, cls }) => (
+        <span key={label} className={`px-2.5 py-1 rounded-full border text-xs font-semibold ${cls}`}>
+          {count} {label}
+        </span>
+      ))}
+      {(findings.sca?.length ?? 0) > 0 && (
+        <span className="px-2.5 py-1 rounded-full border text-xs font-semibold bg-violet-900/40 text-violet-300 border-violet-700">
+          📦 {findings.sca.length} CVE
+        </span>
+      )}
+      {(findings.secret?.length ?? 0) > 0 && (
+        <span className="px-2.5 py-1 rounded-full border text-xs font-semibold bg-amber-900/40 text-amber-300 border-amber-700">
+          🔑 {findings.secret.length} Secret
+        </span>
+      )}
+    </div>
+  );
+}
+
 function JobResultView({ data, navigate }) {
   const { profile = {}, dsomm, findings = {}, llm_summary, pipeline_yaml, job_id, elapsed_seconds } = data;
 
@@ -95,6 +134,7 @@ function JobResultView({ data, navigate }) {
           title="Güvenlik Olgunluk Skoru (DSOMM)"
           subtitle="DevSecOps Maturity Model — 5 kategoride 0-100 arası puanlama. Kategori barlarına tıklayarak detaylı kriterleri görebilirsiniz."
         >
+          <SeverityChips findings={findings} />
           <div className="card">
             <DsommDashboard dsomm={dsomm} />
           </div>
