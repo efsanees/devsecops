@@ -17,7 +17,7 @@ function FindingSummary({ data }) {
   );
 }
 
-export default function AgentProgress({ name, label, icon, status = 'pending', data = null, error = null }) {
+export default function AgentProgress({ name, label, icon, desc, status = 'pending', data = null, error = null }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
 
   return (
@@ -25,9 +25,12 @@ export default function AgentProgress({ name, label, icon, status = 'pending', d
       {/* Sol: araç ikonu */}
       <div className="text-2xl w-8 text-center select-none">{icon}</div>
 
-      {/* Orta: isim + durum */}
+      {/* Orta: isim + açıklama + durum */}
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sm text-white truncate">{label}</div>
+        {desc && status === 'pending' && (
+          <div className="text-[11px] text-slate-600 truncate mt-0.5">{desc}</div>
+        )}
         <div className={`text-xs mt-0.5 flex items-center gap-1.5 ${cfg.color}`}>
           <span className={status === 'running' ? 'animate-spin inline-block' : ''}>{cfg.icon}</span>
           <span>{cfg.label}</span>

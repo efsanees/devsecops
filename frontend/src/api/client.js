@@ -53,12 +53,6 @@ export function getJobReportPdfUrl(jobId) {
   return `${base}/job/${jobId}/report.pdf`;
 }
 
-// SARIF rapor URL'i (GitHub Code Scanning'e yüklenebilir)
-export function getJobSarifUrl(jobId) {
-  const base = import.meta.env.VITE_API_URL ?? '/api';
-  return `${base}/job/${jobId}/report.sarif`;
-}
-
 // Son N analiz jobunu döner (History sayfası için)
 export async function getJobsHistory(limit = 30) {
   try {

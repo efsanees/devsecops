@@ -94,6 +94,10 @@ export default function ComparePage() {
           ← Geçmişe Dön
         </button>
         <h1 className="text-xl font-bold text-white">🔄 Analiz Karşılaştırması</h1>
+        <p className="text-slate-500 text-xs mt-1">
+          A (eski) → B (yeni): yeni eklenen bulgular ve düzeltilen açıklar karşılaştırılır.
+          Geçmiş sayfasında 2 satır seçip "Karşılaştır" butonuyla buraya gelirsiniz.
+        </p>
         {result && !result.repo_match && (
           <p className="text-amber-400 text-xs mt-1">
             ⚠ Bu iki job farklı repolar için — karşılaştırma referans amaçlıdır.
@@ -148,21 +152,27 @@ export default function ComparePage() {
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="card">
               <p className="text-2xl font-bold text-red-400">{result.added?.length ?? 0}</p>
-              <p className="text-xs text-slate-400 mt-1">Yeni Bulgu (B'de eklendi)</p>
+              <p className="text-xs text-slate-400 mt-1">Yeni Bulgu</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">B'de var, A'da yok</p>
             </div>
             <div className="card">
               <p className="text-2xl font-bold text-green-400">{result.removed?.length ?? 0}</p>
-              <p className="text-xs text-slate-400 mt-1">Düzeltilen (A'dan kaldırıldı)</p>
+              <p className="text-xs text-slate-400 mt-1">Düzeltilen</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">A'da vardı, B'de yok</p>
             </div>
             <div className="card">
               <p className="text-2xl font-bold text-slate-400">{result.unchanged_count ?? 0}</p>
               <p className="text-xs text-slate-400 mt-1">Değişmeyen</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">Her ikisinde de var</p>
             </div>
           </div>
 
           {/* DSOMM farkı */}
           {result.dsomm_diff && Object.keys(result.dsomm_diff).length > 0 && (
             <div className="card">
+              <p className="text-xs text-slate-500 mb-2">
+                DSOMM kategori farkı: pozitif (+) = güvenlik olgunluğu arttı, negatif (-) = geriledi.
+              </p>
               <DsommDiff diff={result.dsomm_diff} totalDiff={result.dsomm_total_diff} />
             </div>
           )}
@@ -170,9 +180,12 @@ export default function ComparePage() {
           {/* Yeni bulgular */}
           {result.added?.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-base font-semibold text-red-400">
-                🔴 Yeni Bulgular ({result.added.length})
-              </h2>
+              <div>
+                <h2 className="text-base font-semibold text-red-400">
+                  🔴 Yeni Bulgular ({result.added.length})
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">B analizinde eklenen, A'da olmayan güvenlik açıkları.</p>
+              </div>
               <div className="space-y-2">
                 {result.added.map((f, i) => <FindingCard key={i} f={f} />)}
               </div>
@@ -182,9 +195,12 @@ export default function ComparePage() {
           {/* Düzeltilen bulgular */}
           {result.removed?.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-base font-semibold text-green-400">
-                ✅ Düzeltilen Bulgular ({result.removed.length})
-              </h2>
+              <div>
+                <h2 className="text-base font-semibold text-green-400">
+                  ✅ Düzeltilen Bulgular ({result.removed.length})
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">A analizinde vardı, B'de artık tespit edilmiyor — giderildi.</p>
+              </div>
               <div className="space-y-2">
                 {result.removed.map((f, i) => <FindingCard key={i} f={f} />)}
               </div>

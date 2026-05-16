@@ -4,7 +4,7 @@ import DsommDashboard from '../components/DsommDashboard.jsx';
 import FindingsTable from '../components/FindingsTable.jsx';
 import OwaspChart from '../components/OwaspChart.jsx';
 import PipelineViewer from '../components/PipelineViewer.jsx';
-import { getJob, getJobYamlUrl, getJobReportMdUrl, getJobReportPdfUrl, getJobSarifUrl } from '../api/client.js';
+import { getJob, getJobYamlUrl, getJobReportMdUrl, getJobReportPdfUrl } from '../api/client.js';
 
 function InfoChip({ label, value, ok }) {
   const color = ok === true ? 'text-green-400' : ok === false ? 'text-red-400' : 'text-slate-300';
@@ -20,13 +20,16 @@ function InfoChip({ label, value, ok }) {
   );
 }
 
-function Section({ icon, title, children }) {
+function Section({ icon, title, subtitle, children }) {
   return (
     <section className="space-y-3">
-      <h2 className="flex items-center gap-2 text-base font-semibold text-white">
-        <span>{icon}</span>
-        {title}
-      </h2>
+      <div>
+        <h2 className="flex items-center gap-2 text-base font-semibold text-white">
+          <span>{icon}</span>
+          {title}
+        </h2>
+        {subtitle && <p className="text-xs text-slate-500 mt-0.5 ml-6">{subtitle}</p>}
+      </div>
       {children}
     </section>
   );
@@ -51,51 +54,47 @@ function CopyLinkButton({ jobId }) {
   );
 }
 
-function FpFilterBadge({ count }) {
-  if (!count) return null;
-  return (
-    <div className="flex items-start gap-2 p-3 bg-blue-900/20 border border-blue-700/40 rounded-lg text-xs text-blue-300">
-      <span className="shrink-0 mt-0.5">🤖</span>
-      <span>
-        <strong>LLM False Positive Analizi:</strong> {count} SAST bulgusu
-        false positive olarak filtrelendi (güven eşiği: %65). Gerçek güvenlik
-        sorunları raporda gösterilmektedir.
-      </span>
-    </div>
-  );
-}
-
 function JobResultView({ data, navigate }) {
-  const { profile = {}, dsomm, findings = {}, llm_summary, pipeline_yaml, job_id, elapsed_seconds, fp_filtered_count } = data;
-
-  // Filtrelenen FP bulgular findings.sast içinde is_false_positive=true ile işaretli
-  const fpCount = fp_filtered_count
-    ?? (findings.sast || []).filter((f) => f.is_false_positive).length;
+  const { profile = {}, dsomm, findings = {}, llm_summary, pipeline_yaml, job_id, elapsed_seconds } = data;
 
   const totalFindings =
-    (findings.sast?.filter(f => !f.is_false_positive)?.length ?? 0) +
+    (findings.sast?.length ?? 0) +
     (findings.sca?.length ?? 0) +
     (findings.secret?.length ?? 0);
 
   return (
     <div className="space-y-8">
-      <Section icon="🔍" title="Proje Profili">
+      <Section
+        icon="🔍"
+        title="Proje Profili"
+        subtitle="ProjectProfiler agent'ı tarafından GitHub API üzerinden tespit edildi."
+      >
         <div className="card">
           <InfoChip label="Dil"              value={profile.language          ?? '—'} />
           <InfoChip label="Framework"        value={profile.framework         ?? '—'} />
           <InfoChip label="Paket Yöneticisi" value={profile.package_manager   ?? '—'} />
-          <InfoChip label="Test Dosyaları"   value={profile.has_tests ? 'Var' : 'Yok'} ok={profile.has_tests} />
-          <InfoChip label="Docker"           value={profile.has_docker ? 'Var' : 'Yok'} ok={profile.has_docker} />
+          <InfoChip
+            label="Test Dosyaları"
+            value={profile.has_tests ? 'Var' : 'Yok — DSOMM Testing puanını etkiler'}
+            ok={profile.has_tests}
+          />
+          <InfoChip
+            label="Docker"
+            value={profile.has_docker ? 'Var' : 'Yok — DSOMM Build & Deployment puanını etkiler'}
+            ok={profile.has_docker}
+          />
           {elapsed_seconds && (
-            <InfoChip label="Analiz Süresi" value={`${elapsed_seconds}s`} />
+            <InfoChip label="Toplam Analiz Süresi" value={`${elapsed_seconds} saniye`} />
           )}
         </div>
       </Section>
 
-      <FpFilterBadge count={fpCount} />
-
       {dsomm && (
-        <Section icon="📊" title="Güvenlik Olgunluk Skoru (DSOMM)">
+        <Section
+          icon="📊"
+          title="Güvenlik Olgunluk Skoru (DSOMM)"
+          subtitle="DevSecOps Maturity Model — 5 kategoride 0-100 arası puanlama. Kategori barlarına tıklayarak detaylı kriterleri görebilirsiniz."
+        >
           <div className="card">
             <DsommDashboard dsomm={dsomm} />
           </div>
@@ -103,21 +102,33 @@ function JobResultView({ data, navigate }) {
       )}
 
       {totalFindings > 0 && (
-        <Section icon="📋" title="OWASP Top 10 Haritalama">
+        <Section
+          icon="📋"
+          title="OWASP Top 10 Haritalama"
+          subtitle="Tespit edilen bulgular OWASP Top 10 (2021) güvenlik kategorilerine haritalandı. Bu haritalama hangi tür güvenlik risklerinin yoğun olduğunu gösterir."
+        >
           <div className="card">
             <OwaspChart findings={findings} />
           </div>
         </Section>
       )}
 
-      <Section icon="🛡️" title={`Güvenlik Bulguları ${totalFindings > 0 ? `(${totalFindings})` : ''}`}>
+      <Section
+        icon="🛡️"
+        title={`Güvenlik Bulguları ${totalFindings > 0 ? `(${totalFindings})` : ''}`}
+        subtitle="SAST (kod), SCA (bağımlılık), Gizli (hardcoded credential) ve Pipeline (CI/CD eksiklikleri) sekmeleri. 🤖 AI Fix butonu olan bulgularda somut düzeltme önerisi var."
+      >
         <div className="card">
           <FindingsTable findings={findings} />
         </div>
       </Section>
 
       {llm_summary && (
-        <Section icon="🤖" title="AI Risk Değerlendirmesi">
+        <Section
+          icon="🤖"
+          title="AI Risk Değerlendirmesi"
+          subtitle="Groq (Llama-3.3-70b) tarafından üretildi. Bulgular özetlenerek öncelikli eylem önerileri sunuldu."
+        >
           <div className="card">
             <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{llm_summary}</p>
           </div>
@@ -125,13 +136,21 @@ function JobResultView({ data, navigate }) {
       )}
 
       {pipeline_yaml && (
-        <Section icon="⚙️" title="Önerilen CI/CD Pipeline">
+        <Section
+          icon="⚙️"
+          title="Önerilen CI/CD Pipeline"
+          subtitle="Projeye özel oluşturuldu. .github/workflows/ci.yml olarak repo'nuzа ekleyebilirsiniz."
+        >
           <PipelineViewer yaml={pipeline_yaml} />
         </Section>
       )}
 
       {job_id && (
-        <Section icon="⬇️" title="Raporu İndir">
+        <Section
+          icon="⬇️"
+          title="Raporu İndir"
+          subtitle="YAML: pipeline dosyası · Markdown: tüm bulgular + özet metin · PDF: baskıya hazır rapor"
+        >
           <div className="flex flex-wrap gap-3">
             <a href={getJobYamlUrl(job_id)} download="pipeline.yml"
                className="btn-ghost text-sm flex items-center gap-1.5">
@@ -144,11 +163,6 @@ function JobResultView({ data, navigate }) {
             <a href={getJobReportPdfUrl(job_id)} target="_blank" rel="noopener noreferrer"
                className="btn-ghost text-sm flex items-center gap-1.5">
               📑 PDF Rapor
-            </a>
-            <a href={getJobSarifUrl(job_id)} download={`devsecops-${job_id.slice(0,8)}.sarif`}
-               className="btn-ghost text-sm flex items-center gap-1.5"
-               title="GitHub Code Scanning'e yüklenebilir">
-              🔬 SARIF İndir
             </a>
           </div>
         </Section>

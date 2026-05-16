@@ -167,10 +167,10 @@ function EmptyState({ label }) {
 // ── Ana bileşen ──────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'sast',     label: 'SAST',     icon: '🔬' },
-  { key: 'sca',      label: 'SCA',      icon: '📦' },
-  { key: 'secret',   label: 'Gizli',    icon: '🔑' },
-  { key: 'pipeline', label: 'Pipeline', icon: '⚙️' },
+  { key: 'sast',     label: 'SAST',     icon: '🔬', desc: 'Statik kod analizi — Bandit (Python) + Semgrep (çok dilli). Kod içindeki güvenlik açıkları.' },
+  { key: 'sca',      label: 'SCA',      icon: '📦', desc: 'Bağımlılık güvenliği — OSV.dev + Trivy. Kullanılan kütüphanelerdeki CVE\'ler.' },
+  { key: 'secret',   label: 'Gizli',    icon: '🔑', desc: 'Hardcoded credential — Gitleaks. API key, şifre, token kod içinde sabit yazılmış mı?' },
+  { key: 'pipeline', label: 'Pipeline', icon: '⚙️', desc: 'CI/CD analizi — Mevcut pipeline\'da eksik güvenlik adımları (SAST, SCA, secret scan vb.)' },
 ];
 
 export default function FindingsTable({ findings = {} }) {
@@ -226,7 +226,7 @@ export default function FindingsTable({ findings = {} }) {
   return (
     <div>
       {/* Sekmeler */}
-      <div className="flex gap-1 mb-4 border-b border-slate-700">
+      <div className="flex gap-1 mb-1 border-b border-slate-700">
         {TABS.map(({ key, label, icon }) => (
           <button
             key={key}
@@ -249,6 +249,13 @@ export default function FindingsTable({ findings = {} }) {
           </button>
         ))}
       </div>
+
+      {/* Aktif sekmenin açıklaması */}
+      {TABS.find((t) => t.key === active)?.desc && (
+        <p className="text-[11px] text-slate-600 mb-3 mt-2">
+          {TABS.find((t) => t.key === active).desc}
+        </p>
+      )}
 
       {renderTab()}
     </div>
