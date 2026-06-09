@@ -20,13 +20,17 @@ const PR_REVIEW_WORKFLOW = `name: DevSecOps Code Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    branches:
+      - main
 
 jobs:
-  security-review:
+  security-gate:
+    name: Security Gate (SAST + SCA)
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
       contents: read
+      checks: write
 
     steps:
       - name: Checkout
@@ -42,7 +46,7 @@ jobs:
       - name: Install dependencies
         run: pip install bandit groq requests
 
-      - name: Run DevSecOps PR Review
+      - name: Run DevSecOps Security Gate
         env:
           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
           GROQ_API_KEY: \${{ secrets.GROQ_API_KEY }}
@@ -76,16 +80,28 @@ const STEPS = [
   {
     num: '2',
     title: 'Workflow dosyasını ekleyin',
-    desc: "Aşağıdaki YAML'i indirip .github/workflows/pr-review.yml olarak kaydedin.",
+    desc: "Aşağıdaki YAML'i indirip repo içinde .github/workflows/pr-review.yml olarak kaydedin.",
     detail: null,
   },
   {
     num: '3',
-    title: 'PR açın — review otomatik gelir',
-    desc: "Artık her PR'da DevSecOps Assistant otomatik güvenlik analizi yapıp yorum atar.",
+    title: 'Python analiz scriptini ekleyin',
+    desc: "Analizi yapan asıl betiği (github_pr_review.py) projene dahil etmelisin.",
+    detail: (
+      <div className="mt-3 text-xs text-slate-400">
+        1. Ana projemizdeki <a href="https://raw.githubusercontent.com/efsanees/task-api-test/main/scripts/github_pr_review.py" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">bu script dosyasını</a> indir.<br/>
+        2. Kendi reponda <span className="font-mono text-slate-300">scripts/github_pr_review.py</span> olarak kaydet.
+      </div>
+    ),
+  },
+  {
+    num: '4',
+    title: 'Ruleset ayarlayın ve PR açın',
+    desc: "Main branch için 'Security Gate' status check'ini zorunlu yapın. Artık DevSecOps asistanı güvenliği sağlayacak.",
     detail: (
       <div className="mt-3 p-3 rounded-lg text-xs text-slate-300 font-mono leading-relaxed"
            style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
+        ❌ Security Gate: 2 HIGH/CRITICAL bulgu — merge edilemez<br/><br/>
         🔍 DevSecOps Code Review<br/>
         🟠 HIGH — shell=True ile subprocess...<br/>
         {'  > '}💡 Düzeltme: shell=False kullanın...
